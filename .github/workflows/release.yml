@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
@@ -33,10 +35,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize Repository Name
+      - name: Configure Image Repository and Tags
         run: |
           echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+          TAGS="latest,${{ github.sha }}"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            TAGS="${TAGS},${TAG_NAME}"
+          fi
+          echo "IMAGE_TAGS=${TAGS}" >> "$GITHUB_ENV"
 
       - name: Build and Publish with ko
         run: |
-          KO_DOCKER_REPO="${IMAGE_REPO}" ko build --bare --platform=linux/amd64,linux/arm64 --tags=latest,${{ github.sha }} ./cmd/server
+          KO_DOCKER_REPO="${IMAGE_REPO}" ko build --bare --platform=linux/amd64,linux/arm64 --tags="${IMAGE_TAGS}" ./cmd/server
