@@ -15,6 +15,7 @@ import (
 	"mcstatus/internal/blocklist"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
+	"mcstatus/internal/motd"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
 )
@@ -161,54 +162,63 @@ func FetchJavaStatus(ctx context.Context, cfg *config.Config, bl *blocklist.Bloc
 		Ping:              true,
 	}
 
-	modernResp, modernErr := status.Modern(ctx, host, port, modernOpts)
-	if modernErr == nil && modernResp != nil {
+	modernRaw, modernErr := status.ModernRaw(ctx, host, port, modernOpts)
+	if modernErr == nil && modernRaw != nil {
 		resp.Online = true
-		resp.Version = &types.JavaVersion{
-			NameRaw:   modernResp.Version.Name.Raw,
-			NameClean: modernResp.Version.Name.Clean,
-			NameHTML:  modernResp.Version.Name.HTML,
-			Protocol:  int(modernResp.Version.Protocol),
+
+		if vMap, ok := modernRaw["version"].(map[string]any); ok {
+			nameStr, _ := vMap["name"].(string)
+			vFormat := motd.Format(nameStr)
+			protoVal, _ := vMap["protocol"].(float64)
+			resp.Version = &types.JavaVersion{
+				NameRaw:   vFormat.Raw,
+				NameClean: vFormat.Clean,
+				NameHTML:  vFormat.HTML,
+				Protocol:  int(protoVal),
+			}
 		}
 
-		var onlineCount int
-		var maxCount int
-		if modernResp.Players.Online != nil {
-			onlineCount = int(*modernResp.Players.Online)
-		}
-		if modernResp.Players.Max != nil {
-			maxCount = int(*modernResp.Players.Max)
-		}
-		playersList := make([]types.JavaPlayer, 0, len(modernResp.Players.Sample))
-		for _, p := range modernResp.Players.Sample {
-			playersList = append(playersList, types.JavaPlayer{
-				UUID:      p.ID,
-				NameRaw:   p.Name.Raw,
-				NameClean: p.Name.Clean,
-				NameHTML:  p.Name.HTML,
-			})
-		}
-		resp.Players = &types.JavaPlayers{
-			Online: onlineCount,
-			Max:    maxCount,
-			List:   playersList,
-		}
-
-		resp.MOTD = &types.FormattedString{
-			Raw:   modernResp.MOTD.Raw,
-			Clean: modernResp.MOTD.Clean,
-			HTML:  modernResp.MOTD.HTML,
+		if pMap, ok := modernRaw["players"].(map[string]any); ok {
+			onlineVal, _ := pMap["online"].(float64)
+			maxVal, _ := pMap["max"].(float64)
+			var playersList []types.JavaPlayer
+			if sArr, ok := pMap["sample"].([]any); ok {
+				for _, p := range sArr {
+					if pObj, ok := p.(map[string]any); ok {
+						idStr, _ := pObj["id"].(string)
+						nameStr, _ := pObj["name"].(string)
+						pFormat := motd.Format(nameStr)
+						playersList = append(playersList, types.JavaPlayer{
+							UUID:      idStr,
+							NameRaw:   pFormat.Raw,
+							NameClean: pFormat.Clean,
+							NameHTML:  pFormat.HTML,
+						})
+					}
+				}
+			}
+			resp.Players = &types.JavaPlayers{
+				Online: int(onlineVal),
+				Max:    int(maxVal),
+				List:   playersList,
+			}
 		}
 
-		resp.Icon = modernResp.Favicon
+		resp.MOTD = motd.Format(modernRaw["description"])
 
-		if modernResp.Mods != nil && len(modernResp.Mods.List) > 0 {
-			resp.Mods = make([]types.Mod, 0, len(modernResp.Mods.List))
-			for _, m := range modernResp.Mods.List {
-				resp.Mods = append(resp.Mods, types.Mod{
-					Name:    m.ID,
-					Version: m.Version,
-				})
+		if fav, ok := modernRaw["favicon"].(string); ok && fav != "" {
+			resp.Icon = &fav
+		}
+
+		if mObj, ok := modernRaw["modinfo"].(map[string]any); ok {
+			if mList, ok := mObj["modList"].([]any); ok {
+				for _, m := range mList {
+					if mItem, ok := m.(map[string]any); ok {
+						name, _ := mItem["modid"].(string)
+						ver, _ := mItem["version"].(string)
+						resp.Mods = append(resp.Mods, types.Mod{Name: name, Version: ver})
+					}
+				}
 			}
 		}
 	} else {

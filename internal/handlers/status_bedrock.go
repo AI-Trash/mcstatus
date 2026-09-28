@@ -15,6 +15,7 @@ import (
 	"mcstatus/internal/blocklist"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
+	"mcstatus/internal/motd"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
 )
@@ -68,11 +69,7 @@ func FetchBedrockStatus(ctx context.Context, cfg *config.Config, bl *blocklist.B
 		}
 
 		if bedrockResp.MOTD != nil {
-			resp.MOTD = &types.FormattedString{
-				Raw:   bedrockResp.MOTD.Raw,
-				Clean: bedrockResp.MOTD.Clean,
-				HTML:  bedrockResp.MOTD.HTML,
-			}
+			resp.MOTD = motd.Format(bedrockResp.MOTD.Raw)
 		}
 
 		resp.Gamemode = bedrockResp.Gamemode
