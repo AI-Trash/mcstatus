@@ -1,0 +1,11 @@
+services:
+  mcstatus:
+    image: ghcr.io/ai-trash/mcstatus:latest
+    container_name: mcstatus
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - CACHE_TTL=60s
+      - DEFAULT_TIMEOUT=5s

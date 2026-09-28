@@ -1,0 +1,8 @@
+# Configuration for ko (https://ko.build/)
+defaultBaseImage: alpine:latest
+
+builds:
+  - id: mcstatus
+    main: ./cmd/server
+    env:
+      - CGO_ENABLED=0
