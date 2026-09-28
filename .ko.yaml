@@ -17,3 +17,4 @@ builds:
       - -s
       - -w
       - -extldflags "-static"
+      - -X mcstatus/internal/version.Version={{.Git.FullCommit}}

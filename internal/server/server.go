@@ -15,6 +15,7 @@ import (
 	"mcstatus/internal/config"
 	"mcstatus/internal/handlers"
 	"mcstatus/internal/middleware"
+	"mcstatus/internal/version"
 )
 
 type Server struct {
@@ -81,6 +82,7 @@ func New(cfg *config.Config) *Server {
 		w.Header().Set("Content-Type", "application/json")
 		info := map[string]any{
 			"service": "mcstatus",
+			"version": version.Get(),
 			"status":  "operational",
 			"docs":    "https://mcstatus.io/docs",
 			"endpoints": []string{

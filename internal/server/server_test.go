@@ -51,6 +51,14 @@ func TestServerHealthAndRoot(t *testing.T) {
 	if rootRec.Code != http.StatusOK {
 		t.Fatalf("expected / to return 200, got %d", rootRec.Code)
 	}
+
+	var rootResp map[string]any
+	if err := json.Unmarshal(rootRec.Body.Bytes(), &rootResp); err != nil {
+		t.Fatalf("failed to decode root response: %v", err)
+	}
+	if rootResp["version"] == nil || rootResp["version"] == "" {
+		t.Fatalf("expected non-empty version in root response, got %v", rootResp["version"])
+	}
 }
 
 func TestServerCORSPreflight(t *testing.T) {
