@@ -5,20 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/mcstatus-io/mcutil/v4/options"
 	"github.com/mcstatus-io/mcutil/v4/vote"
 
 	"mcstatus/internal/config"
+	"mcstatus/internal/middleware"
 )
 
 // HandleVote handles POST /v2/vote requests.
-func HandleVote(cfg *config.Config) http.HandlerFunc {
+func HandleVote(cfg *config.Config, filter ...*middleware.IPFilter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
@@ -124,11 +123,11 @@ func HandleVote(cfg *config.Config) http.HandlerFunc {
 
 		ip := getVal("ip")
 		if ip == "" {
-			if remoteHost, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-				ip = remoteHost
-			} else {
-				ip = r.RemoteAddr
+			var f *middleware.IPFilter
+			if len(filter) > 0 {
+				f = filter[0]
 			}
+			ip = middleware.ClientIP(r, f)
 		}
 
 		uuid := getVal("uuid")

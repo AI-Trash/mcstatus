@@ -60,8 +60,10 @@ func New(cfg *config.Config) *Server {
 	mux.HandleFunc("GET /v2/widget/bedrock/{address...}", bedrockWidgetHandler)
 	mux.HandleFunc("GET /widget/bedrock/{address...}", bedrockWidgetHandler)
 
+	ipFilter := middleware.NewIPFilter(cfg.TrustedProxies)
+
 	// Vote routes
-	voteHandler := handlers.HandleVote(cfg)
+	voteHandler := handlers.HandleVote(cfg, ipFilter)
 	mux.HandleFunc("POST /v2/vote", voteHandler)
 	mux.HandleFunc("POST /vote", voteHandler)
 
@@ -94,7 +96,7 @@ func New(cfg *config.Config) *Server {
 	})
 
 	// Wrap with standard middlewares: Recovery -> Logging -> CORS
-	handler := middleware.Recovery(middleware.Logging(middleware.CORS(mux)))
+	handler := middleware.Recovery(middleware.Logging(ipFilter)(middleware.CORS(mux)))
 
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	httpSrv := &http.Server{

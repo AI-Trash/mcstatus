@@ -8,6 +8,7 @@
 - **双端支持**：完整支持 Java 版（Modern 1.7+、Legacy 及 GS4 Query 插件/软件探测）与基岩版（Bedrock）。
 - **零配置开箱即用**：缺省所有配置项即可直接启动运行。
 - **内存缓存 & Cloudflare CDN 友好**：内置带并发合并（SingleFlight）的高性能内存 TTL 缓存，精准输出 `Cache-Control`、`CDN-Cache-Control`、`Cloudflare-CDN-Cache-Control`、`ETag` 与 `X-Cache-Hit` 标头，支持 304 Not Modified。
+- **真实 IP 与彩色日志**：基于 `TRUSTED_PROXIES` 受信代理自动安全提取 `CF-Connecting-IP`、`X-Real-IP`、`X-Forwarded-For` 真实访客 IP，默认覆盖所有私网网段防伪造，终端基于 `tint` 提供现代化着色日志。
 - **现代化构建**：使用 [ko](https://ko.build/) 构建轻量多架构容器镜像，底层使用 `alpine:latest`，推送到 `main` 分支自动发布至 GHCR。
 - **AGPLv3 开源协议**。
 
@@ -86,7 +87,7 @@ go run ./cmd/server
 | `DEFAULT_TIMEOUT` | `5s` | 服务器状态查询默认超时时间 |
 | `MAX_TIMEOUT` | `15s` | 服务器状态查询最大超时限制 |
 | `MOJANG_BLOCKED_REFRESH` | `1h` | Mojang 封禁列表定时刷新间隔 |
-
+| `TRUSTED_PROXIES` | 默认所有私网网段 | 受信代理 CIDR 列表（逗号分隔，如 `127.0.0.1/32,10.0.0.0/8` 或 `*` 全信任）。受信对端方可穿透读取 `CF-Connecting-IP`、`X-Real-IP` 与 `X-Forwarded-For` 客户端真实 IP，防止伪造。缺省默认覆盖所有 RFC 1918、CGNAT、环回及 IPv6 本地私网地址段。 |
 ---
 
 ## 📄 开源许可证

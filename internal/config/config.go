@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,18 +14,19 @@ type Config struct {
 	DefaultTimeout       time.Duration
 	MaxTimeout           time.Duration
 	MojangBlockedRefresh time.Duration
+	TrustedProxies       []string
 }
 
 func Load() *Config {
-	cfg := &Config{
+	return &Config{
 		Host:                 getEnv("HOST", "0.0.0.0"),
 		Port:                 getEnvInt("PORT", 3001),
 		CacheTTL:             getEnvDuration("CACHE_TTL", 60*time.Second),
 		DefaultTimeout:       getEnvDuration("DEFAULT_TIMEOUT", 5*time.Second),
 		MaxTimeout:           getEnvDuration("MAX_TIMEOUT", 15*time.Second),
 		MojangBlockedRefresh: getEnvDuration("MOJANG_BLOCKED_REFRESH", 1*time.Hour),
+		TrustedProxies:       parseList(getEnv("TRUSTED_PROXIES", "")),
 	}
-	return cfg
 }
 
 func getEnv(key, defaultVal string) string {
@@ -32,6 +34,21 @@ func getEnv(key, defaultVal string) string {
 		return val
 	}
 	return defaultVal
+}
+
+func parseList(val string) []string {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return nil
+	}
+	parts := strings.Split(val, ",")
+	var result []string
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func getEnvInt(key string, defaultVal int) int {

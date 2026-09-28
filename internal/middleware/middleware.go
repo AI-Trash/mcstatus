@@ -63,23 +63,26 @@ func Recovery(next http.Handler) http.Handler {
 	})
 }
 
-// Logging logs HTTP requests with timing and status code.
-func Logging(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+// Logging logs HTTP requests with timing, status code, and real client IP.
+func Logging(filter *IPFilter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
-		next.ServeHTTP(rw, r)
+			next.ServeHTTP(rw, r)
 
-		duration := time.Since(start)
-		slog.Info("http request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rw.statusCode,
-			"duration", duration.String(),
-			"remote", r.RemoteAddr,
-		)
-	})
+			duration := time.Since(start)
+			clientIP := ClientIP(r, filter)
+			slog.Info("http request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", rw.statusCode,
+				"duration", duration.String(),
+				"remote", clientIP,
+			)
+		})
+	}
 }
 
 // CheckETag checks If-None-Match header and returns 304 Not Modified if matched.
