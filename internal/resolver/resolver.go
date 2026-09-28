@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/mcstatus-io/mcutil/v4/util"
@@ -17,105 +16,38 @@ type SRVRecord struct {
 	Port uint16 `json:"port"`
 }
 
-// ParseAddress parses address string into host and port.
+// ParseAddress parses address string into host and port using mcutil/v4/util.ParseAddress.
 func ParseAddress(address string, defaultPort uint16) (string, uint16, error) {
 	address = strings.TrimSpace(address)
-	if address == "" {
+	if address == "" || strings.ContainsAny(address, " \t\r\n/\\!@#$%^&*()=+~`\"'<>?,;") {
 		return "", 0, ErrInvalidAddress
 	}
 
-	// Address must not contain spaces or control characters
-	if strings.ContainsAny(address, " \t\r\n/\\") {
+	// Bare IPv6 check e.g. ::1
+	if ip := net.ParseIP(address); ip != nil {
+		return ip.String(), defaultPort, nil
+	}
+
+	host, port, err := util.ParseAddress(address)
+	if err != nil || host == "" {
 		return "", 0, ErrInvalidAddress
 	}
 
-	// Handle bracketed IPv6: [::1] or [::1]:25565
-	if strings.HasPrefix(address, "[") {
-		endBracket := strings.Index(address, "]")
-		if endBracket == -1 {
-			return "", 0, ErrInvalidAddress
-		}
-		host := address[1:endBracket]
-		if net.ParseIP(host) == nil {
-			return "", 0, ErrInvalidAddress
-		}
-
-		rest := address[endBracket+1:]
-		if rest == "" {
-			return host, defaultPort, nil
-		}
-		if !strings.HasPrefix(rest, ":") {
-			return "", 0, ErrInvalidAddress
-		}
-
-		portStr := rest[1:]
-		portNum, err := strconv.ParseUint(portStr, 10, 16)
-		if err != nil || portNum == 0 {
-			return "", 0, ErrInvalidAddress
-		}
-		return host, uint16(portNum), nil
+	// Strip brackets for IPv6 e.g. [::1] -> ::1
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = host[1 : len(host)-1]
 	}
 
-	// If contains colons, could be host:port or bare IPv6
-	colonCount := strings.Count(address, ":")
-	if colonCount > 1 {
-		// Bare IPv6 without brackets
-		if ip := net.ParseIP(address); ip != nil {
-			return address, defaultPort, nil
-		}
-		return "", 0, ErrInvalidAddress
-	}
-
-	if colonCount == 1 {
-		parts := strings.Split(address, ":")
-		host := parts[0]
-		portStr := parts[1]
-		if host == "" || portStr == "" {
+	finalPort := defaultPort
+	if port != nil {
+		if *port == 0 {
 			return "", 0, ErrInvalidAddress
 		}
-		if !isValidHost(host) {
-			return "", 0, ErrInvalidAddress
-		}
-		portNum, err := strconv.ParseUint(portStr, 10, 16)
-		if err != nil || portNum == 0 {
-			return "", 0, ErrInvalidAddress
-		}
-		return host, uint16(portNum), nil
+		finalPort = *port
 	}
 
-	// Bare hostname or IPv4
-	if !isValidHost(address) {
-		return "", 0, ErrInvalidAddress
-	}
-
-	return address, defaultPort, nil
+	return host, finalPort, nil
 }
-
-func isValidHost(host string) bool {
-	if ip := net.ParseIP(host); ip != nil {
-		return true
-	}
-	// Check standard domain name characters
-	if len(host) > 253 {
-		return false
-	}
-	labels := strings.Split(host, ".")
-	for _, label := range labels {
-		if len(label) == 0 || len(label) > 63 {
-			return false
-		}
-		for i, r := range label {
-			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
-				return false
-			}
-			if (r == '-' || r == '_') && (i == 0 || i == len(label)-1) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // ResolveIP resolves the IP address of the host. Returns nil if resolution fails.
 func ResolveIP(ctx context.Context, host string) *string {
 	if ip := net.ParseIP(host); ip != nil {

@@ -15,7 +15,6 @@ import (
 	"mcstatus/internal/blocklist"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
-	"mcstatus/internal/middleware"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
 )
@@ -134,7 +133,7 @@ func GetBedrockStatus(ctx context.Context, cfg *config.Config, c *cache.Cache, b
 // HandleBedrockStatus handles HTTP requests for Bedrock server status.
 func HandleBedrockStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockList) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		address := extractAddress(r, "/v2/status/bedrock/", "/status/bedrock/")
+		address := ExtractAddress(r, "/v2/status/bedrock/", "/status/bedrock/")
 		host, port, err := resolver.ParseAddress(address, 19132)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -143,37 +142,15 @@ func HandleBedrockStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			return
 		}
 
-		timeout := parseTimeout(r, cfg)
-
+		timeout := ParseTimeout(r, cfg)
 		ttl := 60 * time.Second
 		if cfg != nil && cfg.CacheTTL > 0 {
 			ttl = cfg.CacheTTL
 		}
 
-		if c == nil {
-			resp, fetchErr := FetchBedrockStatus(r.Context(), cfg, bl, host, port, timeout)
-			if fetchErr != nil {
-				http.Error(w, fetchErr.Error(), http.StatusInternalServerError)
-				return
-			}
-			data, marshalErr := json.Marshal(resp)
-			if marshalErr != nil {
-				http.Error(w, marshalErr.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if r.Method == http.MethodHead {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-			w.Write(data)
-			return
-		}
-
 		cacheKey := fmt.Sprintf("bedrock:%s:%d", strings.ToLower(host), port)
-		entry, hit, err := c.GetOrCompute(cacheKey, func() ([]byte, string, error) {
-			fetchCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
+			fetchCtx, cancel := context.WithTimeout(r.Context(), timeout)
 			defer cancel()
 
 			resp, fetchErr := FetchBedrockStatus(fetchCtx, cfg, bl, host, port, timeout)
@@ -187,28 +164,7 @@ func HandleBedrockStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			}
 
 			return data, "application/json", nil
-		}, ttl)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", entry.ContentType)
-		middleware.SetCacheHeaders(w, entry.ETag, hit, entry.TimeRemaining())
-
-		if middleware.CheckETag(entry.ETag, r) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write(entry.Data)
+		})
 	}
 }
 

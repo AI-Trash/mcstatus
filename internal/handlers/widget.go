@@ -2,35 +2,21 @@ package handlers
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"image"
 	"image/png"
 	"net/http"
-	"strconv"
 	"strings"
+	"time"
 
 	"mcstatus/internal/assets"
 	"mcstatus/internal/blocklist"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
-	"mcstatus/internal/middleware"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/widget"
 )
-
-// parseWidgetBool parses boolean query parameters with fallback default value.
-func parseWidgetBool(val string, defaultVal bool) bool {
-	if val == "" {
-		return defaultVal
-	}
-	b, err := strconv.ParseBool(val)
-	if err != nil {
-		return defaultVal
-	}
-	return b
-}
 
 // decodeBase64Icon decodes a base64-encoded PNG data URI or raw base64 string.
 // If decoding fails or iconStr is nil/empty, it returns assets.DefaultIcon.
@@ -53,10 +39,15 @@ func decodeBase64Icon(iconStr *string) image.Image {
 	return img
 }
 
+// parseWidgetBool is an alias for ParseBool for backward compatibility.
+func parseWidgetBool(val string, defaultVal bool) bool {
+	return ParseBool(val, defaultVal)
+}
+
 // HandleJavaWidget handles HTTP requests to generate widget image for Java Minecraft servers.
 func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockList) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		address := extractAddress(r, "/v2/widget/java/", "/widget/java/")
+		address := ExtractAddress(r, "/v2/widget/java/", "/widget/java/")
 		address = strings.TrimSpace(address)
 		if address == "" {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -73,75 +64,61 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			return
 		}
 
-		dark := parseWidgetBool(r.URL.Query().Get("dark"), true)
-		rounded := parseWidgetBool(r.URL.Query().Get("rounded"), true)
-		transparent := parseWidgetBool(r.URL.Query().Get("transparent"), false)
-		timeout := parseTimeout(r, cfg)
+		dark := ParseBool(r.URL.Query().Get("dark"), true)
+		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
+		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
+		timeout := ParseTimeout(r, cfg)
 
-		resp, hit, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
-
-		widgetData := &widget.WidgetData{
-			Online:      false,
-			Host:        host,
-			Port:        port,
-			Edition:     "Java Edition",
-			Icon:        assets.DefaultIcon,
-			Dark:        dark,
-			Rounded:     rounded,
-			Transparent: transparent,
-		}
-
-		if resp != nil {
-			widgetData.Online = resp.Online
-			if resp.Online {
-				if resp.Version != nil {
-					widgetData.Version = resp.Version.NameClean
-				}
-				if resp.Players != nil {
-					widgetData.PlayersOnline = resp.Players.Online
-					widgetData.PlayersMax = resp.Players.Max
-				}
-				if resp.MOTD != nil {
-					widgetData.MOTD = resp.MOTD.Clean
-				}
-				widgetData.Icon = decodeBase64Icon(resp.Icon)
-			}
-		}
-
-		pngBytes, err := widget.Render(widgetData)
-		if err != nil {
-			http.Error(w, "Failed to render widget", http.StatusInternalServerError)
-			return
-		}
-
-		etag := fmt.Sprintf(`"%x"`, sha256.Sum256(pngBytes))
-
-		w.Header().Set("Content-Type", "image/png")
-		ttl := 60
+		ttl := 60 * time.Second
 		if cfg != nil && cfg.CacheTTL > 0 {
-			ttl = int(cfg.CacheTTL.Seconds())
-		}
-		middleware.SetCacheHeaders(w, etag, hit, ttl)
-
-		if middleware.CheckETag(etag, r) {
-			w.WriteHeader(http.StatusNotModified)
-			return
+			ttl = cfg.CacheTTL
 		}
 
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t", strings.ToLower(host), port, dark, rounded, transparent)
+		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
+			resp, _, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
 
-		w.WriteHeader(http.StatusOK)
-		w.Write(pngBytes)
+			widgetData := &widget.WidgetData{
+				Online:      false,
+				Host:        host,
+				Port:        port,
+				Edition:     "Java Edition",
+				Icon:        assets.DefaultIcon,
+				Dark:        dark,
+				Rounded:     rounded,
+				Transparent: transparent,
+			}
+
+			if resp != nil {
+				widgetData.Online = resp.Online
+				if resp.Online {
+					if resp.Version != nil {
+						widgetData.Version = resp.Version.NameClean
+					}
+					if resp.Players != nil {
+						widgetData.PlayersOnline = resp.Players.Online
+						widgetData.PlayersMax = resp.Players.Max
+					}
+					if resp.MOTD != nil {
+						widgetData.MOTD = resp.MOTD.Clean
+					}
+					widgetData.Icon = decodeBase64Icon(resp.Icon)
+				}
+			}
+
+			pngBytes, renderErr := widget.Render(widgetData)
+			if renderErr != nil {
+				return nil, "", renderErr
+			}
+			return pngBytes, "image/png", nil
+		})
 	}
 }
 
 // HandleBedrockWidget handles HTTP requests to generate widget image for Bedrock Minecraft servers.
 func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockList) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		address := extractAddress(r, "/v2/widget/bedrock/", "/widget/bedrock/")
+		address := ExtractAddress(r, "/v2/widget/bedrock/", "/widget/bedrock/")
 		address = strings.TrimSpace(address)
 		if address == "" {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -158,68 +135,54 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			return
 		}
 
-		dark := parseWidgetBool(r.URL.Query().Get("dark"), true)
-		rounded := parseWidgetBool(r.URL.Query().Get("rounded"), true)
-		transparent := parseWidgetBool(r.URL.Query().Get("transparent"), false)
-		timeout := parseTimeout(r, cfg)
+		dark := ParseBool(r.URL.Query().Get("dark"), true)
+		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
+		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
+		timeout := ParseTimeout(r, cfg)
 
-		resp, hit, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
-
-		widgetData := &widget.WidgetData{
-			Online:      false,
-			Host:        host,
-			Port:        port,
-			Edition:     "Bedrock Edition",
-			Icon:        assets.DefaultIcon,
-			Dark:        dark,
-			Rounded:     rounded,
-			Transparent: transparent,
-		}
-
-		if resp != nil && resp.Online {
-			widgetData.Online = true
-			if resp.Version != nil && resp.Version.Name != nil {
-				widgetData.Version = *resp.Version.Name
-			}
-			if resp.Players != nil {
-				if resp.Players.Online != nil {
-					widgetData.PlayersOnline = int(*resp.Players.Online)
-				}
-				if resp.Players.Max != nil {
-					widgetData.PlayersMax = int(*resp.Players.Max)
-				}
-			}
-			if resp.MOTD != nil {
-				widgetData.MOTD = resp.MOTD.Clean
-			}
-		}
-
-		pngBytes, err := widget.Render(widgetData)
-		if err != nil {
-			http.Error(w, "Failed to render widget", http.StatusInternalServerError)
-			return
-		}
-
-		etag := fmt.Sprintf(`"%x"`, sha256.Sum256(pngBytes))
-
-		w.Header().Set("Content-Type", "image/png")
-		ttl := 60
+		ttl := 60 * time.Second
 		if cfg != nil && cfg.CacheTTL > 0 {
-			ttl = int(cfg.CacheTTL.Seconds())
-		}
-		middleware.SetCacheHeaders(w, etag, hit, ttl)
-
-		if middleware.CheckETag(etag, r) {
-			w.WriteHeader(http.StatusNotModified)
-			return
+			ttl = cfg.CacheTTL
 		}
 
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t", strings.ToLower(host), port, dark, rounded, transparent)
+		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
+			resp, _, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
 
-		w.WriteHeader(http.StatusOK)
-		w.Write(pngBytes)
+			widgetData := &widget.WidgetData{
+				Online:      false,
+				Host:        host,
+				Port:        port,
+				Edition:     "Bedrock Edition",
+				Icon:        assets.DefaultIcon,
+				Dark:        dark,
+				Rounded:     rounded,
+				Transparent: transparent,
+			}
+
+			if resp != nil && resp.Online {
+				widgetData.Online = true
+				if resp.Version != nil && resp.Version.Name != nil {
+					widgetData.Version = *resp.Version.Name
+				}
+				if resp.Players != nil {
+					if resp.Players.Online != nil {
+						widgetData.PlayersOnline = int(*resp.Players.Online)
+					}
+					if resp.Players.Max != nil {
+						widgetData.PlayersMax = int(*resp.Players.Max)
+					}
+				}
+				if resp.MOTD != nil {
+					widgetData.MOTD = resp.MOTD.Clean
+				}
+			}
+
+			pngBytes, renderErr := widget.Render(widgetData)
+			if renderErr != nil {
+				return nil, "", renderErr
+			}
+			return pngBytes, "image/png", nil
+		})
 	}
 }

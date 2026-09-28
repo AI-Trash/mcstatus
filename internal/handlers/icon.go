@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -15,36 +14,8 @@ import (
 	"mcstatus/internal/assets"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
-	"mcstatus/internal/middleware"
 	"mcstatus/internal/resolver"
 )
-
-// getIconAddress extracts the address parameter from PathValue, URL path prefixes, or query string.
-func getIconAddress(r *http.Request) string {
-	if addr := r.PathValue("address"); addr != "" {
-		if unescaped, err := url.PathUnescape(addr); err == nil && unescaped != "" {
-			return unescaped
-		}
-		return addr
-	}
-
-	p := r.URL.Path
-	for _, prefix := range []string{"/v2/icon", "/icon"} {
-		if strings.HasPrefix(p, prefix) {
-			p = strings.TrimPrefix(p, prefix)
-			p = strings.TrimPrefix(p, "/")
-			if idx := strings.Index(p, "/"); idx != -1 {
-				p = p[:idx]
-			}
-			if unescaped, err := url.PathUnescape(p); err == nil && unescaped != "" {
-				p = unescaped
-			}
-			return p
-		}
-	}
-
-	return r.URL.Query().Get("address")
-}
 
 // fetchIcon queries the Java server status fast without full query and returns PNG bytes.
 func fetchIcon(host string, port uint16, timeout time.Duration) []byte {
@@ -94,7 +65,7 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 			return
 		}
 
-		address := getIconAddress(r)
+		address := ExtractAddress(r, "/v2/icon", "/icon")
 		if address == "" {
 			w.Header().Set("Content-Type", "image/png")
 			w.WriteHeader(http.StatusOK)
@@ -110,47 +81,16 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 			return
 		}
 
-		timeout := parseTimeout(r, cfg)
+		timeout := ParseTimeout(r, cfg)
 		ttl := 60 * time.Second
 		if cfg != nil && cfg.CacheTTL > 0 {
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("icon:%s", address)
-
-		if c == nil {
-			iconBytes := fetchIcon(host, port, timeout)
-			w.Header().Set("Content-Type", "image/png")
-			w.WriteHeader(http.StatusOK)
-			w.Write(iconBytes)
-			return
-		}
-
-		entry, hit, err := c.GetOrCompute(cacheKey, func() ([]byte, string, error) {
+		cacheKey := fmt.Sprintf("icon:%s:%d", strings.ToLower(host), port)
+		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			iconBytes := fetchIcon(host, port, timeout)
 			return iconBytes, "image/png", nil
-		}, ttl)
-
-		if err != nil {
-			w.Header().Set("Content-Type", "image/png")
-			w.WriteHeader(http.StatusOK)
-			w.Write(assets.DefaultIconBytes)
-			return
-		}
-
-		w.Header().Set("Content-Type", entry.ContentType)
-		middleware.SetCacheHeaders(w, entry.ETag, hit, entry.TimeRemaining())
-
-		if middleware.CheckETag(entry.ETag, r) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write(entry.Data)
+		})
 	}
 }

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,80 +15,11 @@ import (
 	"mcstatus/internal/blocklist"
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
-	"mcstatus/internal/middleware"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
 )
 
-// extractAddress retrieves the address parameter from PathValue, URL path prefixes, or query string.
-func extractAddress(r *http.Request, defaultPrefixes ...string) string {
-	if addr := r.PathValue("address"); addr != "" {
-		if unescaped, err := url.PathUnescape(addr); err == nil && unescaped != "" {
-			return unescaped
-		}
-		return addr
-	}
 
-	p := r.URL.Path
-	for _, prefix := range defaultPrefixes {
-		if idx := strings.Index(p, prefix); idx != -1 {
-			p = p[idx+len(prefix):]
-			break
-		}
-	}
-	p = strings.Trim(p, "/")
-	if idx := strings.Index(p, "/"); idx != -1 {
-		p = p[:idx]
-	}
-	if unescaped, err := url.PathUnescape(p); err == nil && unescaped != "" {
-		p = unescaped
-	}
-	if p != "" {
-		return p
-	}
-
-	return r.URL.Query().Get("address")
-}
-
-// parseTimeout extracts timeout in seconds from query params, clamping to [0, maxTimeout].
-func parseTimeout(r *http.Request, cfg *config.Config) time.Duration {
-	defaultSec := 5.0
-	maxSec := 15.0
-	if cfg != nil {
-		if cfg.DefaultTimeout > 0 {
-			defaultSec = cfg.DefaultTimeout.Seconds()
-		}
-		if cfg.MaxTimeout > 0 {
-			maxSec = cfg.MaxTimeout.Seconds()
-		}
-	}
-
-	timeoutSec := defaultSec
-	if tStr := r.URL.Query().Get("timeout"); tStr != "" {
-		if tVal, err := strconv.ParseFloat(tStr, 64); err == nil && tVal > 0 {
-			timeoutSec = tVal
-		}
-	}
-
-	if timeoutSec > maxSec {
-		timeoutSec = maxSec
-	}
-
-	return time.Duration(timeoutSec * float64(time.Second))
-}
-
-// parseQueryParam extracts boolean query parameter (default: true).
-func parseQueryParam(r *http.Request) bool {
-	qStr := r.URL.Query().Get("query")
-	if qStr == "" {
-		return true
-	}
-	qVal, err := strconv.ParseBool(qStr)
-	if err != nil {
-		return true
-	}
-	return qVal
-}
 
 // parsePluginsAndSoftware parses the software name and plugins from query GS4 response data.
 func parsePluginsAndSoftware(data map[string]string) (*string, []types.Plugin) {
@@ -392,7 +321,7 @@ func GetJavaStatus(ctx context.Context, cfg *config.Config, c *cache.Cache, bl *
 // HandleJavaStatus handles HTTP requests for Java server status.
 func HandleJavaStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockList) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		address := extractAddress(r, "/v2/status/java/", "/status/java/")
+		address := ExtractAddress(r, "/v2/status/java/", "/status/java/")
 		host, port, err := resolver.ParseAddress(address, 25565)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -401,38 +330,17 @@ func HandleJavaStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			return
 		}
 
-		queryEnabled := parseQueryParam(r)
-		timeout := parseTimeout(r, cfg)
+		queryEnabled := ParseBool(r.URL.Query().Get("query"), true)
+		timeout := ParseTimeout(r, cfg)
 
 		ttl := 60 * time.Second
 		if cfg != nil && cfg.CacheTTL > 0 {
 			ttl = cfg.CacheTTL
 		}
 
-		if c == nil {
-			resp, fetchErr := FetchJavaStatus(r.Context(), cfg, bl, host, port, queryEnabled, timeout)
-			if fetchErr != nil {
-				http.Error(w, fetchErr.Error(), http.StatusInternalServerError)
-				return
-			}
-			data, marshalErr := json.Marshal(resp)
-			if marshalErr != nil {
-				http.Error(w, marshalErr.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if r.Method == http.MethodHead {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-			w.Write(data)
-			return
-		}
-
 		cacheKey := fmt.Sprintf("java:%s:%d:%t", strings.ToLower(host), port, queryEnabled)
-		entry, hit, err := c.GetOrCompute(cacheKey, func() ([]byte, string, error) {
-			fetchCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
+			fetchCtx, cancel := context.WithTimeout(r.Context(), timeout)
 			defer cancel()
 
 			resp, fetchErr := FetchJavaStatus(fetchCtx, cfg, bl, host, port, queryEnabled, timeout)
@@ -446,27 +354,6 @@ func HandleJavaStatus(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			}
 
 			return data, "application/json", nil
-		}, ttl)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", entry.ContentType)
-		middleware.SetCacheHeaders(w, entry.ETag, hit, entry.TimeRemaining())
-
-		if middleware.CheckETag(entry.ETag, r) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-
-		if r.Method == http.MethodHead {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Write(entry.Data)
+		})
 	}
 }
