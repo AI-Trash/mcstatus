@@ -167,14 +167,29 @@ func FetchJavaStatus(ctx context.Context, cfg *config.Config, bl *blocklist.Bloc
 		resp.Online = true
 
 		if vMap, ok := modernRaw["version"].(map[string]any); ok {
+			protoVal, _ := vMap["protocol"].(float64)
+			serverProto := int(protoVal)
+
+			// Re-query with the server's reported protocol to eliminate the "outdated client" warning in MOTD
+			if serverProto > 0 && serverProto != modernOpts.ProtocolVersion {
+				refinedOpts := modernOpts
+				refinedOpts.ProtocolVersion = serverProto
+				refinedOpts.Timeout = 1500 * time.Millisecond
+				if refinedRaw, err := status.ModernRaw(ctx, host, port, refinedOpts); err == nil && refinedRaw != nil {
+					modernRaw = refinedRaw
+					if vMapRefined, ok := modernRaw["version"].(map[string]any); ok {
+						vMap = vMapRefined
+					}
+				}
+			}
+
 			nameStr, _ := vMap["name"].(string)
 			vFormat := motd.Format(nameStr)
-			protoVal, _ := vMap["protocol"].(float64)
 			resp.Version = &types.JavaVersion{
 				NameRaw:   vFormat.Raw,
 				NameClean: vFormat.Clean,
 				NameHTML:  vFormat.HTML,
-				Protocol:  int(protoVal),
+				Protocol:  serverProto,
 			}
 		}
 
