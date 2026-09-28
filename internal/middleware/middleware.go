@@ -34,10 +34,28 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 // CORS adds CORS headers to all responses and handles OPTIONS preflights.
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "HEAD,OPTIONS,GET,POST,PUT")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		w.Header().Set("Access-Control-Expose-Headers", "ETag, X-Cache-Hit, X-Cache-Time-Remaining")
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			// Dynamically reflect origin and allow credentials for browser fetch/axios withCredentials
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Add("Vary", "Origin")
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+
+		w.Header().Set("Access-Control-Allow-Methods", "HEAD,OPTIONS,GET,POST,PUT,DELETE")
+
+		// Mirror requested headers during preflight for strict credentialed browser compliance
+		reqHeaders := r.Header.Get("Access-Control-Request-Headers")
+		if reqHeaders != "" {
+			w.Header().Set("Access-Control-Allow-Headers", reqHeaders)
+			w.Header().Add("Vary", "Access-Control-Request-Headers")
+		} else {
+			w.Header().Set("Access-Control-Allow-Headers", "*")
+		}
+
+		w.Header().Set("Access-Control-Expose-Headers", "ETag, X-Cache-Hit, X-Cache-Time-Remaining, Content-Type, Content-Length, Cache-Control, CDN-Cache-Control, Cloudflare-CDN-Cache-Control")
 		w.Header().Set("Access-Control-Allow-Private-Network", "true")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
