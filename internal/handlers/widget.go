@@ -69,11 +69,11 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
 		style := strings.TrimSpace(r.URL.Query().Get("style"))
 		hideIcon := !ParseBool(r.URL.Query().Get("icon"), true)
-		showAddress := ParseBool(r.URL.Query().Get("address"), true)
+		var titlePtr *string
 		if r.URL.Query().Has("title") {
-			showAddress = ParseBool(r.URL.Query().Get("title"), showAddress)
+			tVal := strings.TrimSpace(r.URL.Query().Get("title"))
+			titlePtr = &tVal
 		}
-		hideAddress := !showAddress
 		timeout := ParseTimeout(r, cfg)
 
 		ttl := 60 * time.Second
@@ -81,7 +81,11 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, hideAddress)
+		titleKey := "default"
+		if titlePtr != nil {
+			titleKey = *titlePtr
+		}
+		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
 
@@ -96,7 +100,7 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 				Rounded:     rounded,
 				Transparent: transparent,
 				HideIcon:    hideIcon,
-				HideAddress: hideAddress,
+				Title:       titlePtr,
 			}
 
 			if resp != nil {
@@ -151,11 +155,11 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
 		style := strings.TrimSpace(r.URL.Query().Get("style"))
 		hideIcon := !ParseBool(r.URL.Query().Get("icon"), true)
-		showAddress := ParseBool(r.URL.Query().Get("address"), true)
+		var titlePtr *string
 		if r.URL.Query().Has("title") {
-			showAddress = ParseBool(r.URL.Query().Get("title"), showAddress)
+			tVal := strings.TrimSpace(r.URL.Query().Get("title"))
+			titlePtr = &tVal
 		}
-		hideAddress := !showAddress
 		timeout := ParseTimeout(r, cfg)
 
 		ttl := 60 * time.Second
@@ -163,7 +167,11 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, hideAddress)
+		titleKey := "default"
+		if titlePtr != nil {
+			titleKey = *titlePtr
+		}
+		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
 
@@ -178,7 +186,7 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 				Rounded:     rounded,
 				Transparent: transparent,
 				HideIcon:    hideIcon,
-				HideAddress: hideAddress,
+				Title:       titlePtr,
 			}
 
 			if resp != nil && resp.Online {

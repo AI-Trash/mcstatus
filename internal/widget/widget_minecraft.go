@@ -185,23 +185,45 @@ func drawMCPingBars(dst *image.RGBA, x, y int, online bool) {
 // It dynamically adapts canvas height and text positioning when ShowIcon or ShowAddress are toggled.
 func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	showIcon := true
-	showAddr := true
+	hasTitle := true
+	titleText := "localhost"
+
 	if data != nil {
 		showIcon = !data.HideIcon
-		showAddr = !data.HideAddress
-	}
-
-	// 1. Self-adaptive canvas height
-	canvasH := MCHeight // default 88
-	if !showAddr {
-		if showIcon {
-			canvasH = 76 // 64px icon + 6px padding top & bottom
-		} else {
-			canvasH = 58 // 2 rows of text + padding
+		titleText = data.Host
+		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
+			titleText = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
+		}
+		if data.Title != nil {
+			if *data.Title == "" {
+				hasTitle = false
+			} else {
+				hasTitle = true
+				titleText = *data.Title
+			}
 		}
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, MCWidth, canvasH))
+	// 1. Self-adaptive canvas width and height
+	canvasW := MCWidth // 650
+	if !showIcon {
+		canvasW = MCWidth - 76 // 574 (completely trim out 64px icon + padding)
+	}
+
+	canvasH := MCHeight // default 88
+	if hasTitle {
+		if !showIcon {
+			canvasH = 80 // icon gone, text lines fit in 80px
+		}
+	} else {
+		if showIcon {
+			canvasH = 76 // fits 64px icon with 6px padding
+		} else {
+			canvasH = 52 // ultra-compact: both icon and title gone, 2 lines of text
+		}
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, canvasW, canvasH))
 	var (
 		bgColor     color.RGBA
 		borderColor color.RGBA
@@ -226,16 +248,16 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 
 	// 2. Background and border
 	if !data.Transparent {
-		drawRoundedBox(img, 0, 0, MCWidth, canvasH, cardRadius, bgColor)
-		drawRectOutline(img, 0, 0, MCWidth, canvasH, borderColor)
+		drawRoundedBox(img, 0, 0, canvasW, canvasH, cardRadius, bgColor)
+		drawRectOutline(img, 0, 0, canvasW, canvasH, borderColor)
 	}
 
 	// 3. Self-adaptive startX and icon rendering
-	startX := 16
+	startX := 14
 	if showIcon {
 		startX = 88
 		iconY := 12
-		if !showAddr {
+		if !hasTitle {
 			iconY = 6
 		}
 		iconImg := data.Icon
@@ -248,10 +270,10 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	}
 
 	// 4. Ping indicator & Players count on the right
-	pingX := MCWidth - 30
+	pingX := canvasW - 28
 	pingY := 16
 	playersY := 28
-	if !showAddr {
+	if !hasTitle {
 		pingY = 12
 		playersY = 24
 	}
@@ -269,16 +291,11 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	playersX := pingX - 10 - playersW
 	drawMCPlain(img, playersX, playersY, playersStr, playersCol, false, false)
 
-	// 5. Server Title (only if showAddr is true)
-	if showAddr {
-		serverTitle := data.Host
-		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
-			serverTitle = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
-		}
+	// 5. Server Title (only if hasTitle is true)
+	if hasTitle {
 		white := color.RGBA{255, 255, 255, 255}
-		drawMCPlain(img, startX, 28, serverTitle, white, true, false)
+		drawMCPlain(img, startX, 28, titleText, white, true, false)
 	}
-
 	// 6. MOTD Lines with adaptive positioning and text width clamping
 	motdRaw := data.MOTDRaw
 	if motdRaw == "" {
@@ -294,17 +311,16 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	lines := strings.Split(motdRaw, "\n")
 	motdY1 := 50
 	motdY2 := 70
-	maxLine1W := MCWidth - startX - 20
-	maxLine2W := MCWidth - startX - 20
+	maxLine1W := canvasW - startX - 16
+	maxLine2W := canvasW - startX - 16
 
-	if !showAddr {
-		// When address is hidden, MOTD line 1 moves up to line 1!
+	if !hasTitle {
+		// When title is hidden, MOTD line 1 moves up to line 1!
 		motdY1 = 24
-		motdY2 = 48
+		motdY2 = 44
 		// Line 1 stops before players count to prevent overlap
 		maxLine1W = playersX - startX - 10
 	}
-
 	if len(lines) > 0 {
 		spans1 := motd.ParseSpans(lines[0])
 		drawMCSpans(img, startX, motdY1, spans1, maxLine1W)

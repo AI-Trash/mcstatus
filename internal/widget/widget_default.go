@@ -99,10 +99,23 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	drawRectOutline(img, cardX, cardY, cardW, cardH, borderColor)
 
 	showIcon := true
-	showAddr := true
+	hasTitle := true
+	titleText := "localhost"
+
 	if data != nil {
 		showIcon = !data.HideIcon
-		showAddr = !data.HideAddress
+		titleText = data.Host
+		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
+			titleText = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
+		}
+		if data.Title != nil {
+			if *data.Title == "" {
+				hasTitle = false
+			} else {
+				hasTitle = true
+				titleText = *data.Title
+			}
+		}
 	}
 
 	contentX := 40
@@ -123,12 +136,8 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	motdY1 := 126
 	motdY2 := 146
 
-	if showAddr {
-		title := data.Host
-		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
-			title = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
-		}
-		drawTitle(img, contentX, 44, title, primaryText)
+	if hasTitle {
+		drawTitle(img, contentX, 44, titleText, primaryText)
 	} else {
 		// When address is hidden, shift badge and MOTD up!
 		badgeY = 44

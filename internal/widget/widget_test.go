@@ -258,19 +258,20 @@ func TestRenderMinecraftAdaptiveLayout(t *testing.T) {
 		MOTDRaw:       "Line 1\nLine 2",
 	}
 
-	// 1. Hide Address (Canvas height becomes 76)
+	// 1. Hide Title via Title = "" (Canvas is 650x76)
 	d1 := base
-	d1.HideAddress = true
+	emptyTitle := ""
+	d1.Title = &emptyTitle
 	buf1, err := Render(&d1)
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
 	}
 	img1, _ := png.Decode(bytes.NewReader(buf1))
 	if img1.Bounds().Dx() != MCWidth || img1.Bounds().Dy() != 76 {
-		t.Fatalf("HideAddress dimension want 650x76, got %dx%d", img1.Bounds().Dx(), img1.Bounds().Dy())
+		t.Fatalf("HideTitle dimension want 650x76, got %dx%d", img1.Bounds().Dx(), img1.Bounds().Dy())
 	}
 
-	// 2. Hide Icon (Canvas width is 650, height 88)
+	// 2. Hide Icon (Canvas width is trimmed by 76px to 574, height is 80)
 	d2 := base
 	d2.HideIcon = true
 	buf2, err := Render(&d2)
@@ -278,20 +279,33 @@ func TestRenderMinecraftAdaptiveLayout(t *testing.T) {
 		t.Fatalf("Render failed: %v", err)
 	}
 	img2, _ := png.Decode(bytes.NewReader(buf2))
-	if img2.Bounds().Dx() != MCWidth || img2.Bounds().Dy() != 88 {
-		t.Fatalf("HideIcon dimension want 650x88, got %dx%d", img2.Bounds().Dx(), img2.Bounds().Dy())
+	if img2.Bounds().Dx() != 574 || img2.Bounds().Dy() != 80 {
+		t.Fatalf("HideIcon dimension want 574x80, got %dx%d", img2.Bounds().Dx(), img2.Bounds().Dy())
 	}
 
-	// 3. Hide Both (Canvas height becomes 58)
+	// 3. Hide Both (Canvas width is 574, height is trimmed to 52)
 	d3 := base
-	d3.HideAddress = true
+	d3.Title = &emptyTitle
 	d3.HideIcon = true
 	buf3, err := Render(&d3)
 	if err != nil {
 		t.Fatalf("Render failed: %v", err)
 	}
 	img3, _ := png.Decode(bytes.NewReader(buf3))
-	if img3.Bounds().Dx() != MCWidth || img3.Bounds().Dy() != 58 {
-		t.Fatalf("HideBoth dimension want 650x58, got %dx%d", img3.Bounds().Dx(), img3.Bounds().Dy())
+	if img3.Bounds().Dx() != 574 || img3.Bounds().Dy() != 52 {
+		t.Fatalf("HideBoth dimension want 574x52, got %dx%d", img3.Bounds().Dx(), img3.Bounds().Dy())
+	}
+
+	// 4. Custom Title text
+	d4 := base
+	customTitle := "My Custom Server"
+	d4.Title = &customTitle
+	buf4, err := Render(&d4)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img4, _ := png.Decode(bytes.NewReader(buf4))
+	if img4.Bounds().Dx() != MCWidth || img4.Bounds().Dy() != MCHeight {
+		t.Fatalf("CustomTitle dimension want 650x88, got %dx%d", img4.Bounds().Dx(), img4.Bounds().Dy())
 	}
 }

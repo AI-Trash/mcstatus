@@ -33,7 +33,7 @@ type WidgetData struct {
 	Rounded       bool        // default true
 	Transparent   bool        // default false
 	HideIcon      bool        // hide with ?icon=false
-	HideAddress   bool        // hide with ?address=false or ?title=false
+	Title         *string     // nil = default address, "" = hide title, non-empty = custom title text
 }
 var (
 	// Default banner fonts
@@ -145,7 +145,7 @@ func RenderImage(data *WidgetData) (*image.RGBA, error) {
 			Rounded:     true,
 			Transparent: false,
 			HideIcon:    false,
-			HideAddress: false,
+			Title:       nil,
 		}
 	}
 
