@@ -98,24 +98,46 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	drawRoundedBox(img, cardX, cardY, cardW, cardH, cardRadius, cardBgColor)
 	drawRectOutline(img, cardX, cardY, cardW, cardH, borderColor)
 
-	// 3. Draw Icon
-	iconImg := data.Icon
-	if iconImg == nil {
-		iconImg = assets.DefaultIcon
+	showIcon := true
+	showAddr := true
+	if data != nil {
+		showIcon = !data.HideIcon
+		showAddr = !data.HideAddress
 	}
-	iconRect := image.Rect(IconX, IconY, IconX+IconSize, IconY+IconSize)
-	draw.BiLinear.Scale(img, iconRect, iconImg, iconImg.Bounds(), draw.Over, nil)
-	drawRectOutline(img, IconX-1, IconY-1, IconSize+2, IconSize+2, borderColor)
+
+	contentX := 40
+	if showIcon {
+		contentX = 136
+		iconImg := data.Icon
+		if iconImg == nil {
+			iconImg = assets.DefaultIcon
+		}
+		iconRect := image.Rect(IconX, IconY, IconX+IconSize, IconY+IconSize)
+		draw.BiLinear.Scale(img, iconRect, iconImg, iconImg.Bounds(), draw.Over, nil)
+		drawRectOutline(img, IconX-1, IconY-1, IconSize+2, IconSize+2, borderColor)
+	}
 
 	// 4. Server Title
-	title := data.Host
-	if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
-		title = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
-	}
-	drawTitle(img, 136, 44, title, primaryText)
+	badgeY := 76
+	lineY := 114
+	motdY1 := 126
+	motdY2 := 146
 
+	if showAddr {
+		title := data.Host
+		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
+			title = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
+		}
+		drawTitle(img, contentX, 44, title, primaryText)
+	} else {
+		// When address is hidden, shift badge and MOTD up!
+		badgeY = 44
+		lineY = 82
+		motdY1 = 100
+		motdY2 = 124
+	}
 	// 5. Status Badge
-	badgeX, badgeY, badgeW, badgeH := 136, 76, 120, 24
+	badgeX, badgeW, badgeH := contentX, 120, 24
 	statusColor := statusOff
 	statusLabel := "OFFLINE"
 	if data.Online {
@@ -140,7 +162,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 	drawNormalText(img, edX, badgeY+5, edLabel, secText)
 
-	drawHLine(img, 136, BannerWidth-48, 114, borderColor)
+	drawHLine(img, contentX, BannerWidth-48, lineY, borderColor)
 
 	// 7. MOTD
 	motdText := data.MOTD
@@ -152,16 +174,16 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 	motdLines := strings.Split(motdText, "\n")
 	if len(motdLines) > 0 {
-		drawNormalText(img, 136, 126, strings.TrimSpace(motdLines[0]), primaryText)
+		drawNormalText(img, contentX, motdY1, strings.TrimSpace(motdLines[0]), primaryText)
 	}
 	if len(motdLines) > 1 {
-		drawNormalText(img, 136, 146, strings.TrimSpace(motdLines[1]), secText)
+		drawNormalText(img, contentX, motdY2, strings.TrimSpace(motdLines[1]), secText)
 	}
 
 	// 8. Stats Boxes (PLAYERS, PROTOCOL, PING)
 	boxW, boxH, boxY := 200, 46, 170
 
-	box1X := 136
+	box1X := contentX
 	drawRectOutline(img, box1X, boxY, boxW, boxH, borderColor)
 	drawNormalText(img, box1X+14, boxY+6, "PLAYERS", secText)
 	playersVal := "0 / 0"

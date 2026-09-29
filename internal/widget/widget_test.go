@@ -246,3 +246,52 @@ func TestRenderMinecraftOffline(t *testing.T) {
 		t.Fatalf("Unexpected image dimensions: %dx%d, want %dx%d", bounds.Dx(), bounds.Dy(), MCWidth, MCHeight)
 	}
 }
+
+func TestRenderMinecraftAdaptiveLayout(t *testing.T) {
+	base := WidgetData{
+		Style:         "minecraft",
+		Online:        true,
+		Host:          "pure.mc.asyncraft.club",
+		Port:          25565,
+		PlayersOnline: 1,
+		PlayersMax:    500,
+		MOTDRaw:       "Line 1\nLine 2",
+	}
+
+	// 1. Hide Address (Canvas height becomes 76)
+	d1 := base
+	d1.HideAddress = true
+	buf1, err := Render(&d1)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img1, _ := png.Decode(bytes.NewReader(buf1))
+	if img1.Bounds().Dx() != MCWidth || img1.Bounds().Dy() != 76 {
+		t.Fatalf("HideAddress dimension want 650x76, got %dx%d", img1.Bounds().Dx(), img1.Bounds().Dy())
+	}
+
+	// 2. Hide Icon (Canvas width is 650, height 88)
+	d2 := base
+	d2.HideIcon = true
+	buf2, err := Render(&d2)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img2, _ := png.Decode(bytes.NewReader(buf2))
+	if img2.Bounds().Dx() != MCWidth || img2.Bounds().Dy() != 88 {
+		t.Fatalf("HideIcon dimension want 650x88, got %dx%d", img2.Bounds().Dx(), img2.Bounds().Dy())
+	}
+
+	// 3. Hide Both (Canvas height becomes 58)
+	d3 := base
+	d3.HideAddress = true
+	d3.HideIcon = true
+	buf3, err := Render(&d3)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img3, _ := png.Decode(bytes.NewReader(buf3))
+	if img3.Bounds().Dx() != MCWidth || img3.Bounds().Dy() != 58 {
+		t.Fatalf("HideBoth dimension want 650x58, got %dx%d", img3.Bounds().Dx(), img3.Bounds().Dy())
+	}
+}
