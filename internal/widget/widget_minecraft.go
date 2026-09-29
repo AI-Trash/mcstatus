@@ -67,10 +67,14 @@ func mcShadowColor(c color.RGBA) color.RGBA {
 func measureMCRune(r rune, bold, italic bool) int {
 	face := selectMCRuneFace(r, bold, italic)
 	adv, ok := face.GlyphAdvance(r)
-	if !ok {
-		return 8
+	width := 8
+	if ok {
+		width = adv.Ceil()
 	}
-	return adv.Ceil()
+	if bold && !hasMCGlyph(r) {
+		width++
+	}
+	return width
 }
 
 // measureMCText measures width of plain string with given bold/italic.
@@ -83,9 +87,11 @@ func measureMCText(text string, bold, italic bool) int {
 }
 
 // drawMCRune renders a rune with authentic Minecraft drop shadow.
+// If a CJK rune has bold enabled, it simulates Minecraft's 1px horizontal offset rendering.
 func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic bool) int {
 	face := selectMCRuneFace(r, bold, italic)
 	shadow := mcShadowColor(col)
+	isCJK := !hasMCGlyph(r)
 
 	// Draw shadow offset by +2, +2
 	dShadow := &font.Drawer{
@@ -96,6 +102,16 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 	}
 	dShadow.DrawString(string(r))
 
+	if bold && isCJK {
+		dShadowBold := &font.Drawer{
+			Dst:  dst,
+			Src:  image.NewUniform(shadow),
+			Face: face,
+			Dot:  fixed.Point26_6{X: fixed.I(x + 3), Y: fixed.I(y + 2)},
+		}
+		dShadowBold.DrawString(string(r))
+	}
+
 	// Draw foreground text
 	dText := &font.Drawer{
 		Dst:  dst,
@@ -105,11 +121,25 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 	}
 	dText.DrawString(string(r))
 
-	adv, ok := face.GlyphAdvance(r)
-	if !ok {
-		return 8
+	if bold && isCJK {
+		dTextBold := &font.Drawer{
+			Dst:  dst,
+			Src:  image.NewUniform(col),
+			Face: face,
+			Dot:  fixed.Point26_6{X: fixed.I(x + 1), Y: fixed.I(y)},
+		}
+		dTextBold.DrawString(string(r))
 	}
-	return adv.Ceil()
+
+	adv, ok := face.GlyphAdvance(r)
+	width := 8
+	if ok {
+		width = adv.Ceil()
+	}
+	if bold && isCJK {
+		width++
+	}
+	return width
 }
 
 // drawMCPlain renders plain text string with specified color and drop shadow.

@@ -53,9 +53,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 		cardBgColor  color.RGBA
 		borderColor  color.RGBA
 		primaryText  color.RGBA
-		secText      color.RGBA
-		statusOnline color.RGBA
-		statusOff    color.RGBA
+		secText     color.RGBA
 	)
 
 	if data.Dark {
@@ -64,16 +62,12 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 		borderColor = color.RGBA{45, 45, 60, 255}
 		primaryText = color.RGBA{240, 240, 245, 255}
 		secText = color.RGBA{140, 140, 160, 255}
-		statusOnline = color.RGBA{46, 204, 113, 255}
-		statusOff = color.RGBA{231, 76, 60, 255}
 	} else {
 		bgColor = color.RGBA{248, 249, 250, 255}
 		cardBgColor = color.RGBA{255, 255, 255, 255}
 		borderColor = color.RGBA{220, 224, 230, 255}
 		primaryText = color.RGBA{20, 25, 35, 255}
 		secText = color.RGBA{100, 110, 125, 255}
-		statusOnline = color.RGBA{39, 174, 96, 255}
-		statusOff = color.RGBA{192, 57, 43, 255}
 	}
 
 	if data.Transparent {
@@ -146,23 +140,47 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 		motdY2 = 124
 	}
 	// 5. Status Badge
-	badgeX, badgeW, badgeH := contentX, 120, 24
-	statusColor := statusOff
-	statusLabel := "OFFLINE"
-	if data.Online {
-		statusColor = statusOnline
-		statusLabel = "ONLINE"
+	badgeX, badgeW, badgeH := contentX, 108, 24
+	badgeRadius := 4
+	if !data.Rounded {
+		badgeRadius = 0
 	}
 
-	for by := badgeY; by < badgeY+badgeH; by++ {
-		for bx := badgeX; bx < badgeX+badgeW; bx++ {
-			img.Set(bx, by, color.RGBA{statusColor.R, statusColor.G, statusColor.B, 40})
+	var (
+		badgeBg     color.RGBA
+		badgeBorder color.RGBA
+		badgeText   color.RGBA
+		statusLabel string
+	)
+
+	if data.Online {
+		statusLabel = "ONLINE"
+		if data.Dark {
+			badgeBg = color.RGBA{20, 48, 32, 255}
+			badgeBorder = color.RGBA{38, 115, 70, 255}
+			badgeText = color.RGBA{46, 204, 113, 255}
+		} else {
+			badgeBg = color.RGBA{236, 253, 245, 255}
+			badgeBorder = color.RGBA{167, 243, 208, 255}
+			badgeText = color.RGBA{5, 150, 105, 255}
+		}
+	} else {
+		statusLabel = "OFFLINE"
+		if data.Dark {
+			badgeBg = color.RGBA{48, 20, 24, 255}
+			badgeBorder = color.RGBA{120, 40, 48, 255}
+			badgeText = color.RGBA{239, 68, 68, 255}
+		} else {
+			badgeBg = color.RGBA{254, 242, 242, 255}
+			badgeBorder = color.RGBA{254, 202, 202, 255}
+			badgeText = color.RGBA{220, 38, 38, 255}
 		}
 	}
-	drawRectOutline(img, badgeX, badgeY, badgeW, badgeH, statusColor)
-	drawCircle(img, badgeX+14, badgeY+12, 4, statusColor)
-	drawNormalText(img, badgeX+26, badgeY+4, statusLabel, statusColor)
 
+	drawRoundedBox(img, badgeX, badgeY, badgeW, badgeH, badgeRadius, badgeBg)
+	drawRectOutline(img, badgeX, badgeY, badgeW, badgeH, badgeBorder)
+	drawCircle(img, badgeX+14, badgeY+12, 3, badgeText)
+	drawNormalText(img, badgeX+24, badgeY+4, statusLabel, badgeText)
 	// 6. Edition & Version
 	edX := badgeX + badgeW + 12
 	edLabel := data.Edition
@@ -217,7 +235,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	if data.Online {
 		pingVal = "< 50 ms"
 	}
-	drawNormalText(img, box3X+14, boxY+24, pingVal, statusColor)
+	drawNormalText(img, box3X+14, boxY+24, pingVal, badgeText)
 	return img, nil
 }
 
