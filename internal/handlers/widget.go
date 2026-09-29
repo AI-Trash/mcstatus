@@ -68,7 +68,6 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
 		style := strings.TrimSpace(r.URL.Query().Get("style"))
-		format, _ := ResolveImageFormat(r)
 		hideIcon := !ParseBool(r.URL.Query().Get("icon"), true)
 		showAddress := ParseBool(r.URL.Query().Get("address"), true)
 		if r.URL.Query().Has("title") {
@@ -82,13 +81,12 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, format, hideIcon, hideAddress)
+		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, hideAddress)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
 
 			widgetData := &widget.WidgetData{
 				Style:       style,
-				Format:      format,
 				Online:      false,
 				Host:        host,
 				Port:        port,
@@ -119,7 +117,11 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 				}
 			}
 
-			return widget.RenderFormatted(widgetData)
+			pngBytes, renderErr := widget.Render(widgetData)
+			if renderErr != nil {
+				return nil, "", renderErr
+			}
+			return pngBytes, "image/png", nil
 		})
 	}
 }
@@ -148,7 +150,6 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
 		style := strings.TrimSpace(r.URL.Query().Get("style"))
-		format, _ := ResolveImageFormat(r)
 		hideIcon := !ParseBool(r.URL.Query().Get("icon"), true)
 		showAddress := ParseBool(r.URL.Query().Get("address"), true)
 		if r.URL.Query().Has("title") {
@@ -162,13 +163,12 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, format, hideIcon, hideAddress)
+		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%t:%t", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, hideAddress)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
 
 			widgetData := &widget.WidgetData{
 				Style:       style,
-				Format:      format,
 				Online:      false,
 				Host:        host,
 				Port:        port,
@@ -200,7 +200,11 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 				}
 			}
 
-			return widget.RenderFormatted(widgetData)
+			pngBytes, renderErr := widget.Render(widgetData)
+			if renderErr != nil {
+				return nil, "", renderErr
+			}
+			return pngBytes, "image/png", nil
 		})
 	}
 }

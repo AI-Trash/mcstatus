@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/KarpelesLab/goavif"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/opentype"
@@ -20,7 +19,6 @@ import (
 // WidgetData holds all parameters needed to render a server status widget banner or card.
 type WidgetData struct {
 	Style         string      // "default", "banner", or "minecraft"
-	Format        string      // "png" (default) or "avif"
 	Online        bool
 	Host          string
 	Port          uint16
@@ -159,44 +157,17 @@ func RenderImage(data *WidgetData) (*image.RGBA, error) {
 	}
 }
 
-// EncodeImage encodes an image.Image into either AVIF (lossless) or standard PNG format.
-func EncodeImage(img image.Image, format string) ([]byte, string, error) {
-	if strings.ToLower(strings.TrimSpace(format)) == "avif" {
-		var buf bytes.Buffer
-		err := goavif.Encode(&buf, img, &goavif.Options{
-			Lossless: true,
-			Speed:    6,
-		})
-		if err != nil {
-			return nil, "", err
-		}
-		return buf.Bytes(), "image/avif", nil
-	}
-
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, "", err
-	}
-	return buf.Bytes(), "image/png", nil
-}
-
-// RenderFormatted generates encoded image bytes along with its MIME Content-Type.
-func RenderFormatted(data *WidgetData) ([]byte, string, error) {
+// Render generates a standard PNG image based on data.Style.
+func Render(data *WidgetData) ([]byte, error) {
 	img, err := RenderImage(data)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	fmtStr := "png"
-	if data != nil && data.Format != "" {
-		fmtStr = data.Format
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
 	}
-	return EncodeImage(img, fmtStr)
-}
-
-// Render generates encoded image bytes based on data.Style and data.Format (defaults to PNG).
-func Render(data *WidgetData) ([]byte, error) {
-	b, _, err := RenderFormatted(data)
-	return b, err
+	return buf.Bytes(), nil
 }
 
 // RenderWidget is a convenience wrapper for Render.
