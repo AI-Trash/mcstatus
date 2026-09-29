@@ -266,6 +266,40 @@ func drawRoundedBox(dst *image.RGBA, x, y, w, h, radius int, col color.RGBA) {
 		}
 	}
 }
+// drawRoundedOutline draws a 1px outline with optional rounded corners.
+func drawRoundedOutline(dst *image.RGBA, x, y, w, h, radius int, col color.RGBA) {
+	if radius <= 0 {
+		drawRectOutline(dst, x, y, w, h, col)
+		return
+	}
+	for j := y; j < y+h; j++ {
+		for i := x; i < x+w; i++ {
+			dx := 0
+			if i < x+radius {
+				dx = x + radius - i
+			} else if i >= x+w-radius {
+				dx = i - (x + w - radius - 1)
+			}
+			dy := 0
+			if j < y+radius {
+				dy = y + radius - j
+			} else if j >= y+h-radius {
+				dy = j - (y + h - radius - 1)
+			}
+			d2 := dx*dx + dy*dy
+			if d2 > radius*radius {
+				continue
+			}
+			isBorder := (dx == 0 && (j == y || j == y+h-1)) ||
+				(dy == 0 && (i == x || i == x+w-1)) ||
+				(dx > 0 && dy > 0 && d2 > (radius-1)*(radius-1))
+
+			if isBorder {
+				dst.Set(i, j, col)
+			}
+		}
+	}
+}
 
 // parseHexColor parses a hex string like "#55FF55" into color.RGBA.
 func parseHexColor(hexStr string, def color.RGBA) color.RGBA {

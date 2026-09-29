@@ -279,7 +279,7 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	// 2. Background and border
 	if !data.Transparent {
 		drawRoundedBox(img, 0, 0, canvasW, canvasH, cardRadius, bgColor)
-		drawRectOutline(img, 0, 0, canvasW, canvasH, borderColor)
+		drawRoundedOutline(img, 0, 0, canvasW, canvasH, cardRadius, borderColor)
 	}
 
 	// 3. Self-adaptive startX and icon rendering

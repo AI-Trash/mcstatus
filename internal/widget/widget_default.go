@@ -120,7 +120,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 		cardRadius = 0
 	}
 	drawRoundedBox(img, cardX, cardY, cardW, cardH, cardRadius, cardBgColor)
-	drawRectOutline(img, cardX, cardY, cardW, cardH, borderColor)
+	drawRoundedOutline(img, cardX, cardY, cardW, cardH, cardRadius, borderColor)
 
 	// 3. Icon
 	contentX := 36
@@ -190,7 +190,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 
 	drawRoundedBox(img, badgeX, badgeY, badgeW, badgeH, badgeRadius, badgeBg)
-	drawRectOutline(img, badgeX, badgeY, badgeW, badgeH, badgeBorder)
+	drawRoundedOutline(img, badgeX, badgeY, badgeW, badgeH, badgeRadius, badgeBorder)
 	drawCircle(img, badgeX+14, badgeY+12, 3, badgeText)
 	drawNormalText(img, badgeX+24, badgeY+4, statusLabel, badgeText)
 	// 6. Edition & Version
