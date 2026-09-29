@@ -12,8 +12,6 @@ import (
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 
@@ -25,77 +23,6 @@ const (
 	MCWidth  = 650
 	MCHeight = 88
 )
-
-var (
-	mcRegularFace    font.Face
-	mcBoldFace       font.Face
-	mcItalicFace     font.Face
-	mcBoldItalicFace font.Face
-	mcCJKFace        font.Face
-
-	mcSfntFont *sfnt.Font
-)
-
-func init() {
-	opts := &opentype.FaceOptions{
-		Size: 16,
-		DPI:  72,
-	}
-
-	if assets.MinecraftRegular != nil {
-		f, err := opentype.NewFace(assets.MinecraftRegular, opts)
-		if err == nil {
-			mcRegularFace = f
-		}
-	}
-	if assets.MinecraftBold != nil {
-		f, err := opentype.NewFace(assets.MinecraftBold, opts)
-		if err == nil {
-			mcBoldFace = f
-		}
-	}
-	if assets.MinecraftItalic != nil {
-		f, err := opentype.NewFace(assets.MinecraftItalic, opts)
-		if err == nil {
-			mcItalicFace = f
-		}
-	}
-	if assets.MinecraftBoldItalic != nil {
-		f, err := opentype.NewFace(assets.MinecraftBoldItalic, opts)
-		if err == nil {
-			mcBoldItalicFace = f
-		}
-	}
-	if assets.DefaultFont != nil {
-		f, err := opentype.NewFace(assets.DefaultFont, opts)
-		if err == nil {
-			mcCJKFace = f
-		}
-	}
-
-	if mcRegularFace == nil {
-		mcRegularFace = basicfont.Face7x13
-	}
-	if mcBoldFace == nil {
-		mcBoldFace = mcRegularFace
-	}
-	if mcItalicFace == nil {
-		mcItalicFace = mcRegularFace
-	}
-	if mcBoldItalicFace == nil {
-		mcBoldItalicFace = mcBoldFace
-	}
-	if mcCJKFace == nil {
-		mcCJKFace = mcRegularFace
-	}
-
-	if len(assets.MinecraftRegularBytes) > 0 {
-		sfntF, err := sfnt.Parse(assets.MinecraftRegularBytes)
-		if err == nil {
-			mcSfntFont = sfntF
-		}
-	}
-}
 
 // hasMCGlyph checks if the Minecraft font has a glyph for the given rune.
 func hasMCGlyph(r rune) bool {
@@ -124,24 +51,6 @@ func selectMCRuneFace(r rune, bold, italic bool) font.Face {
 		}
 	}
 	return mcCJKFace
-}
-
-// parseHexColor parses a hex string like "#55FF55" into color.RGBA.
-func parseHexColor(hexStr string, def color.RGBA) color.RGBA {
-	hexStr = strings.TrimPrefix(hexStr, "#")
-	if len(hexStr) != 6 {
-		return def
-	}
-	rgb, err := strconv.ParseUint(hexStr, 16, 32)
-	if err != nil {
-		return def
-	}
-	return color.RGBA{
-		R: uint8(rgb >> 16),
-		G: uint8((rgb >> 8) & 0xFF),
-		B: uint8(rgb & 0xFF),
-		A: 255,
-	}
 }
 
 // mcShadowColor computes the Minecraft drop shadow color (brightness / 4).
@@ -239,16 +148,13 @@ func drawMCSpans(dst *image.RGBA, x, y int, spans []motd.TextSpan, maxW int) int
 // drawMCPingBars renders the authentic 5-bar Minecraft latency indicator or offline cross.
 func drawMCPingBars(dst *image.RGBA, x, y int, online bool) {
 	if !online {
-		// Draw red 'X'
 		red := color.RGBA{255, 85, 85, 255}
 		redShadow := mcShadowColor(red)
 
-		// Draw shadow
 		for i := 0; i < 9; i++ {
 			dst.Set(x+i+1, y+i+1, redShadow)
 			dst.Set(x+8-i+1, y+i+1, redShadow)
 		}
-		// Draw cross
 		for i := 0; i < 9; i++ {
 			dst.Set(x+i, y+i, red)
 			dst.Set(x+8-i, y+i, red)
@@ -256,7 +162,6 @@ func drawMCPingBars(dst *image.RGBA, x, y int, online bool) {
 		return
 	}
 
-	// 5 signal bars
 	green := color.RGBA{85, 255, 85, 255}
 	greenShadow := mcShadowColor(green)
 	barHeights := []int{3, 5, 7, 9, 11}
@@ -265,12 +170,10 @@ func drawMCPingBars(dst *image.RGBA, x, y int, online bool) {
 		bx := x + i*3
 		by := y + (12 - h)
 
-		// Shadow (+1, +1)
 		for dy := 0; dy < h; dy++ {
 			dst.Set(bx+1, by+dy+1, greenShadow)
 			dst.Set(bx+2, by+dy+1, greenShadow)
 		}
-		// Bar
 		for dy := 0; dy < h; dy++ {
 			dst.Set(bx, by+dy, green)
 			dst.Set(bx+1, by+dy, green)
@@ -278,10 +181,9 @@ func drawMCPingBars(dst *image.RGBA, x, y int, online bool) {
 	}
 }
 
-// RenderMinecraft generates a 650x88 Minecraft Server List entry PNG.
-func RenderMinecraft(data *WidgetData) ([]byte, error) {
+// RenderMinecraftImage generates the raw *image.RGBA canvas for Minecraft server list style.
+func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	img := image.NewRGBA(image.Rect(0, 0, MCWidth, MCHeight))
-
 	var (
 		bgColor     color.RGBA
 		borderColor color.RGBA
@@ -304,39 +206,13 @@ func RenderMinecraft(data *WidgetData) ([]byte, error) {
 		cardRadius = 0
 	}
 
-	// Fill background
-	for y := 0; y < MCHeight; y++ {
-		for x := 0; x < MCWidth; x++ {
-			if data.Transparent {
-				continue
-			}
-			if cardRadius > 0 {
-				dx := 0
-				if x < cardRadius {
-					dx = cardRadius - x
-				} else if x >= MCWidth-cardRadius {
-					dx = x - (MCWidth - cardRadius - 1)
-				}
-				dy := 0
-				if y < cardRadius {
-					dy = cardRadius - y
-				} else if y >= MCHeight-cardRadius {
-					dy = y - (MCHeight - cardRadius - 1)
-				}
-				if dx*dx+dy*dy > cardRadius*cardRadius {
-					continue
-				}
-			}
-			img.Set(x, y, bgColor)
-		}
-	}
-
-	// Outline border
+	// 1. Background
 	if !data.Transparent {
+		drawRoundedBox(img, 0, 0, MCWidth, MCHeight, cardRadius, bgColor)
 		drawRectOutline(img, 0, 0, MCWidth, MCHeight, borderColor)
 	}
 
-	// 1. Draw 64x64 Server Icon (NearestNeighbor for sharp pixel art)
+	// 2. 64x64 Server Icon (NearestNeighbor for pixel precision)
 	iconImg := data.Icon
 	if iconImg == nil {
 		iconImg = assets.DefaultIcon
@@ -345,8 +221,7 @@ func RenderMinecraft(data *WidgetData) ([]byte, error) {
 	draw.NearestNeighbor.Scale(img, iconRect, iconImg, iconImg.Bounds(), draw.Over, nil)
 	drawRectOutline(img, 11, 11, 66, 66, color.RGBA{30, 30, 30, 255})
 
-	// 2. Top Row (y = 28 baseline)
-	// Server Title on top left
+	// 3. Top Row (y = 28 baseline)
 	serverTitle := data.Host
 	if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
 		serverTitle = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
@@ -371,7 +246,7 @@ func RenderMinecraft(data *WidgetData) ([]byte, error) {
 	playersW := measureMCText(playersStr, false, false)
 	drawMCPlain(img, pingX-10-playersW, 28, playersStr, playersCol, false, false)
 
-	// 3. Middle & Bottom Row: MOTD Lines (y = 50, y = 70)
+	// 4. Middle & Bottom Row: MOTD Lines (y = 50, y = 70)
 	motdRaw := data.MOTDRaw
 	if motdRaw == "" {
 		motdRaw = data.MOTD
@@ -383,7 +258,6 @@ func RenderMinecraft(data *WidgetData) ([]byte, error) {
 		motdRaw = "A Minecraft Server"
 	}
 
-	// Split by newline into lines
 	lines := strings.Split(motdRaw, "\n")
 	maxTextW := MCWidth - 88 - 20
 
@@ -395,7 +269,15 @@ func RenderMinecraft(data *WidgetData) ([]byte, error) {
 		spans2 := motd.ParseSpans(lines[1])
 		drawMCSpans(img, 88, 70, spans2, maxTextW)
 	}
+	return img, nil
+}
 
+// RenderMinecraft generates a 650x88 Minecraft Server List entry PNG.
+func RenderMinecraft(data *WidgetData) ([]byte, error) {
+	img, err := RenderMinecraftImage(data)
+	if err != nil {
+		return nil, err
+	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err

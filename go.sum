@@ -1,3 +1,5 @@
+github.com/KarpelesLab/goavif v0.1.0 h1:CJ5go0sQPjpfNL0E7Zzgn/IMi5ppv/gd1oy4URU2+j4=
+github.com/KarpelesLab/goavif v0.1.0/go.mod h1:JvXzaymMyoNY+cWkJhMLM1f89NM2+4cYaYOz2P5vgO8=
 github.com/lmittmann/tint v1.2.0 h1:AogHRHy8HUJUnNJBHJlYa+fR4YY8mko2cnCp67xn9JY=
 github.com/lmittmann/tint v1.2.0/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
 github.com/mcstatus-io/mcutil/v4 v4.3.1 h1:OvuZfl8p4R2xUv7GuC8cF1UnxaePUFGA40NjC2JDGBk=

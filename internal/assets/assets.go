@@ -29,6 +29,9 @@ var MinecraftItalicBytes []byte
 //go:embed MinecraftBoldItalic.otf
 var MinecraftBoldItalicBytes []byte
 
+//go:embed unifont.otf.gz
+var unifontGzBytes []byte
+
 var (
 	DefaultIcon         image.Image
 	DefaultFont         *opentype.Font // Zpix (CJK pixel font)
@@ -36,6 +39,7 @@ var (
 	MinecraftBold       *opentype.Font
 	MinecraftItalic     *opentype.Font
 	MinecraftBoldItalic *opentype.Font
+	Unifont             *opentype.Font // GNU Unifont (Official Minecraft Java fallback)
 )
 
 func init() {
@@ -78,5 +82,20 @@ func init() {
 	MinecraftBoldItalic, err = opentype.Parse(MinecraftBoldItalicBytes)
 	if err != nil {
 		panic("failed to parse MinecraftBoldItalic font: " + err.Error())
+	}
+
+	grUni, err := gzip.NewReader(bytes.NewReader(unifontGzBytes))
+	if err != nil {
+		panic("failed to decompress unifont: " + err.Error())
+	}
+	unifontBytes, err := io.ReadAll(grUni)
+	if err != nil {
+		panic("failed to read decompressed unifont: " + err.Error())
+	}
+	_ = grUni.Close()
+
+	Unifont, err = opentype.Parse(unifontBytes)
+	if err != nil {
+		panic("failed to parse Unifont font: " + err.Error())
 	}
 }

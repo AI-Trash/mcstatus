@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image/png"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
 	"mcstatus/internal/resolver"
+	"mcstatus/internal/widget"
 )
 
 // fetchIcon queries the Java server status fast without full query and returns PNG bytes.
@@ -87,9 +90,16 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("icon:%s:%d", strings.ToLower(host), port)
+		format, _ := ResolveImageFormat(r)
+		cacheKey := fmt.Sprintf("icon:%s:%d:%s", strings.ToLower(host), port, format)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			iconBytes := fetchIcon(host, port, timeout)
+			if format == "avif" {
+				img, err := png.Decode(bytes.NewReader(iconBytes))
+				if err == nil {
+					return widget.EncodeImage(img, "avif")
+				}
+			}
 			return iconBytes, "image/png", nil
 		})
 	}

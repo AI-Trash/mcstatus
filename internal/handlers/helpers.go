@@ -91,6 +91,16 @@ func ParseBool(val string, defaultVal bool) bool {
 	return b
 }
 
+// ResolveImageFormat returns the format ("avif" or "png") and mime type based on the query parameter.
+// Defaults to PNG to prevent Cloudflare CDN cache poisoning on URLs without explicit format parameters.
+func ResolveImageFormat(r *http.Request) (string, string) {
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	if format == "avif" {
+		return "avif", "image/avif"
+	}
+	return "png", "image/png"
+}
+
 // ServeCached executes or retrieves cached response, injecting standard Cloudflare CDN headers, ETag 304, and HEAD handling.
 func ServeCached(w http.ResponseWriter, r *http.Request, c *cache.Cache, cacheKey string, ttl time.Duration, compute func() ([]byte, string, error)) {
 	if c == nil {
@@ -116,8 +126,10 @@ func ServeCached(w http.ResponseWriter, r *http.Request, c *cache.Cache, cacheKe
 	}
 
 	w.Header().Set("Content-Type", entry.ContentType)
+	if strings.HasPrefix(entry.ContentType, "image/") {
+		w.Header().Add("Vary", "Accept")
+	}
 	middleware.SetCacheHeaders(w, entry.ETag, hit, entry.TimeRemaining())
-
 	if middleware.CheckETag(entry.ETag, r) {
 		w.WriteHeader(http.StatusNotModified)
 		return
