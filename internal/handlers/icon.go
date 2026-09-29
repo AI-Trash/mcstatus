@@ -86,7 +86,6 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 		if cfg != nil && cfg.CacheTTL > 0 {
 			ttl = cfg.CacheTTL
 		}
-
 		cacheKey := fmt.Sprintf("icon:%s:%d", strings.ToLower(host), port)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			iconBytes := fetchIcon(host, port, timeout)

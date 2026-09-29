@@ -14,6 +14,7 @@ import (
 
 	"mcstatus/internal/config"
 	"mcstatus/internal/middleware"
+	"mcstatus/internal/util"
 )
 
 // HandleVote handles POST /v2/vote requests.
@@ -72,14 +73,14 @@ func HandleVote(cfg *config.Config, filter ...*middleware.IPFilter) http.Handler
 
 		var port uint16 = 8192
 		if portStr := getVal("port"); portStr != "" {
-			if p, err := strconv.ParseUint(portStr, 10, 16); err == nil && p > 0 {
-				port = uint16(p)
-			} else {
+			p, err := util.ParseUint16(portStr, 8192)
+			if err != nil || p == 0 {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Invalid port value"))
 				return
 			}
+			port = p
 		}
 
 		timeout := 5 * time.Second

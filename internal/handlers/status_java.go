@@ -23,40 +23,9 @@ import (
 	"mcstatus/internal/motd"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
+	"mcstatus/internal/util"
 )
 
-func writeVarInt(val int32, w io.Writer) error {
-	for {
-		if (val & ^0x7F) == 0 {
-			_, err := w.Write([]byte{byte(val)})
-			return err
-		}
-		if _, err := w.Write([]byte{byte((val & 0x7F) | 0x80)}); err != nil {
-			return err
-		}
-		val = int32(uint32(val) >> 7)
-	}
-}
-
-func readVarInt(r io.Reader) (int32, error) {
-	var num int32
-	var count uint
-	b := make([]byte, 1)
-	for {
-		if _, err := r.Read(b); err != nil {
-			return 0, err
-		}
-		num |= int32(b[0]&0x7F) << (7 * count)
-		count++
-		if (b[0] & 0x80) == 0 {
-			break
-		}
-		if count > 5 {
-			return 0, fmt.Errorf("varint too long")
-		}
-	}
-	return num, nil
-}
 
 func pingModernSLP(ctx context.Context, host string, port uint16, targetHost string, targetPort uint16, protocol int32, timeout time.Duration) (map[string]any, error) {
 	d := net.Dialer{Timeout: timeout}
@@ -73,15 +42,15 @@ func pingModernSLP(ctx context.Context, host string, port uint16, targetHost str
 	}
 
 	hBuf := &bytes.Buffer{}
-	_ = writeVarInt(0x00, hBuf)
-	_ = writeVarInt(protocol, hBuf)
-	_ = writeVarInt(int32(len(host)), hBuf)
+	_ = util.WriteVarInt(0x00, hBuf)
+	_ = util.WriteVarInt(protocol, hBuf)
+	_ = util.WriteVarInt(int32(len(host)), hBuf)
 	hBuf.WriteString(host)
 	_ = binary.Write(hBuf, binary.BigEndian, port)
-	_ = writeVarInt(1, hBuf)
+	_ = util.WriteVarInt(1, hBuf)
 
 	pktBuf := &bytes.Buffer{}
-	_ = writeVarInt(int32(hBuf.Len()), pktBuf)
+	_ = util.WriteVarInt(int32(hBuf.Len()), pktBuf)
 	pktBuf.Write(hBuf.Bytes())
 	if _, err := conn.Write(pktBuf.Bytes()); err != nil {
 		return nil, err
@@ -91,13 +60,13 @@ func pingModernSLP(ctx context.Context, host string, port uint16, targetHost str
 		return nil, err
 	}
 
-	if _, err := readVarInt(conn); err != nil {
+	if _, err := util.ReadVarInt(conn); err != nil {
 		return nil, err
 	}
-	if _, err := readVarInt(conn); err != nil {
+	if _, err := util.ReadVarInt(conn); err != nil {
 		return nil, err
 	}
-	strLen, err := readVarInt(conn)
+	strLen, err := util.ReadVarInt(conn)
 	if err != nil {
 		return nil, err
 	}

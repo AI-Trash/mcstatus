@@ -3,13 +3,13 @@ package handlers
 import (
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
 	"mcstatus/internal/middleware"
+	"mcstatus/internal/util"
 )
 
 // ExtractAddress retrieves the address parameter from PathValue, URL path prefixes, or query string.
@@ -65,30 +65,12 @@ func ParseTimeout(r *http.Request, cfg *config.Config) time.Duration {
 		}
 	}
 
-	timeoutSec := defaultSec
-	if tStr := r.URL.Query().Get("timeout"); tStr != "" {
-		if tVal, err := strconv.ParseFloat(tStr, 64); err == nil && tVal > 0 {
-			timeoutSec = tVal
-		}
-	}
-
-	if timeoutSec > maxSec {
-		timeoutSec = maxSec
-	}
-
-	return time.Duration(timeoutSec * float64(time.Second))
+	return util.ParseTimeout(r.URL.Query().Get("timeout"), defaultSec, maxSec)
 }
 
 // ParseBool parses a boolean query parameter with fallback default.
 func ParseBool(val string, defaultVal bool) bool {
-	if val == "" {
-		return defaultVal
-	}
-	b, err := strconv.ParseBool(val)
-	if err != nil {
-		return defaultVal
-	}
-	return b
+	return util.ParseBool(val, defaultVal)
 }
 
 // ServeCached executes or retrieves cached response, injecting standard Cloudflare CDN headers, ETag 304, and HEAD handling.

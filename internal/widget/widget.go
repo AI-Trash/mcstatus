@@ -14,6 +14,7 @@ import (
 	"golang.org/x/image/font/sfnt"
 
 	"mcstatus/internal/assets"
+	"mcstatus/internal/util"
 )
 
 // WidgetData holds all parameters needed to render a server status widget banner or card.
@@ -168,6 +169,14 @@ func Render(data *WidgetData) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+// RenderFormatted generates encoded image bytes along with its MIME Content-Type based on format ("png" or "avif").
+func RenderFormatted(data *WidgetData, format string) ([]byte, string, error) {
+	img, err := RenderImage(data)
+	if err != nil {
+		return nil, "", err
+	}
+	return util.EncodeImage(img, format)
 }
 
 // RenderWidget is a convenience wrapper for Render.

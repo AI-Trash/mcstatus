@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
 	"image"
-	"image/png"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +13,7 @@ import (
 	"mcstatus/internal/config"
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/widget"
+	"mcstatus/internal/util"
 )
 
 // decodeBase64Icon decodes a base64-encoded PNG data URI or raw base64 string.
@@ -24,16 +22,8 @@ func decodeBase64Icon(iconStr *string) image.Image {
 	if iconStr == nil || *iconStr == "" {
 		return assets.DefaultIcon
 	}
-	s := *iconStr
-	if idx := strings.Index(s, ","); idx != -1 {
-		s = s[idx+1:]
-	}
-	data, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return assets.DefaultIcon
-	}
-	img, err := png.Decode(bytes.NewReader(data))
-	if err != nil {
+	img, err := util.DecodeBase64Image(*iconStr)
+	if err != nil || img == nil {
 		return assets.DefaultIcon
 	}
 	return img
@@ -121,9 +111,9 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 				}
 			}
 
-			pngBytes, renderErr := widget.Render(widgetData)
-			if renderErr != nil {
-				return nil, "", renderErr
+			pngBytes, err := widget.Render(widgetData)
+			if err != nil {
+				return nil, "", err
 			}
 			return pngBytes, "image/png", nil
 		})
@@ -208,9 +198,9 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 				}
 			}
 
-			pngBytes, renderErr := widget.Render(widgetData)
-			if renderErr != nil {
-				return nil, "", renderErr
+			pngBytes, err := widget.Render(widgetData)
+			if err != nil {
+				return nil, "", err
 			}
 			return pngBytes, "image/png", nil
 		})
