@@ -43,6 +43,48 @@ func TestRenderDefault(t *testing.T) {
 		t.Fatalf("Unexpected image dimensions: %dx%d, want %dx%d", bounds.Dx(), bounds.Dy(), BannerWidth, BannerHeight)
 	}
 }
+func TestRenderDefaultAdaptiveLayout(t *testing.T) {
+	emptyTitle := ""
+	base := WidgetData{
+		Online:        true,
+		Host:          "play.example.com",
+		Port:          25565,
+		Edition:       "Java Edition",
+		Version:       "1.20.4",
+		PlayersOnline: 10,
+		PlayersMax:    100,
+		MOTD:          "Welcome!",
+		Dark:          true,
+	}
+
+	// 1. Hide Icon (760 x 240)
+	d1 := base
+	d1.HideIcon = true
+	buf1, _ := Render(&d1)
+	img1, _ := png.Decode(bytes.NewReader(buf1))
+	if img1.Bounds().Dx() != 760 || img1.Bounds().Dy() != 240 {
+		t.Fatalf("Default HideIcon dimension want 760x240, got %dx%d", img1.Bounds().Dx(), img1.Bounds().Dy())
+	}
+
+	// 2. Hide Title (860 x 208)
+	d2 := base
+	d2.Title = &emptyTitle
+	buf2, _ := Render(&d2)
+	img2, _ := png.Decode(bytes.NewReader(buf2))
+	if img2.Bounds().Dx() != 860 || img2.Bounds().Dy() != 208 {
+		t.Fatalf("Default HideTitle dimension want 860x208, got %dx%d", img2.Bounds().Dx(), img2.Bounds().Dy())
+	}
+
+	// 3. Hide Both (760 x 208)
+	d3 := base
+	d3.HideIcon = true
+	d3.Title = &emptyTitle
+	buf3, _ := Render(&d3)
+	img3, _ := png.Decode(bytes.NewReader(buf3))
+	if img3.Bounds().Dx() != 760 || img3.Bounds().Dy() != 208 {
+		t.Fatalf("Default HideBoth dimension want 760x208, got %dx%d", img3.Bounds().Dx(), img3.Bounds().Dy())
+	}
+}
 
 func TestRenderOffline(t *testing.T) {
 	data := &WidgetData{

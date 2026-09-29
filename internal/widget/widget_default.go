@@ -47,12 +47,42 @@ func drawNormalText(dst *image.RGBA, x, y int, text string, col color.Color) {
 
 // RenderDefaultImage generates the raw *image.RGBA banner for default style.
 func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
-	img := image.NewRGBA(image.Rect(0, 0, BannerWidth, BannerHeight))
+	showIcon := true
+	hasTitle := true
+	titleText := "localhost"
+
+	if data != nil {
+		showIcon = !data.HideIcon
+		titleText = data.Host
+		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
+			titleText = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
+		}
+		if data.Title != nil {
+			if *data.Title == "" {
+				hasTitle = false
+			} else {
+				hasTitle = true
+				titleText = *data.Title
+			}
+		}
+	}
+
+	canvasW := BannerWidth // 860
+	if !showIcon {
+		canvasW = BannerWidth - 100 // 760
+	}
+
+	canvasH := BannerHeight // 240
+	if !hasTitle {
+		canvasH = BannerHeight - 32 // 208
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, canvasW, canvasH))
 	var (
-		bgColor      color.RGBA
-		cardBgColor  color.RGBA
-		borderColor  color.RGBA
-		primaryText  color.RGBA
+		bgColor     color.RGBA
+		cardBgColor color.RGBA
+		borderColor color.RGBA
+		primaryText color.RGBA
 		secText     color.RGBA
 	)
 
@@ -75,8 +105,8 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 
 	// 1. Fill base canvas
-	for y := 0; y < BannerHeight; y++ {
-		for x := 0; x < BannerWidth; x++ {
+	for y := 0; y < canvasH; y++ {
+		for x := 0; x < canvasW; x++ {
 			if !data.Transparent {
 				img.Set(x, y, bgColor)
 			}
@@ -84,7 +114,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 
 	// 2. Draw card background
-	cardX, cardY, cardW, cardH := 12, 12, BannerWidth-24, BannerHeight-24
+	cardX, cardY, cardW, cardH := 12, 12, canvasW-24, canvasH-24
 	cardRadius := 12
 	if !data.Rounded {
 		cardRadius = 0
@@ -92,27 +122,8 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	drawRoundedBox(img, cardX, cardY, cardW, cardH, cardRadius, cardBgColor)
 	drawRectOutline(img, cardX, cardY, cardW, cardH, borderColor)
 
-	showIcon := true
-	hasTitle := true
-	titleText := "localhost"
-
-	if data != nil {
-		showIcon = !data.HideIcon
-		titleText = data.Host
-		if (data.Edition == "Java Edition" && data.Port != 25565) || (data.Edition == "Bedrock Edition" && data.Port != 19132) {
-			titleText = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
-		}
-		if data.Title != nil {
-			if *data.Title == "" {
-				hasTitle = false
-			} else {
-				hasTitle = true
-				titleText = *data.Title
-			}
-		}
-	}
-
-	contentX := 40
+	// 3. Icon
+	contentX := 36
 	if showIcon {
 		contentX = 136
 		iconImg := data.Icon
@@ -124,22 +135,23 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 		drawRectOutline(img, IconX-1, IconY-1, IconSize+2, IconSize+2, borderColor)
 	}
 
-	// 4. Server Title
+	// 4. Server Title & Positioning
 	badgeY := 76
 	lineY := 114
 	motdY1 := 126
 	motdY2 := 146
+	boxY := 170
 
 	if hasTitle {
 		drawTitle(img, contentX, 44, titleText, primaryText)
 	} else {
-		// When address is hidden, shift badge and MOTD up!
+		// When address is hidden, shift badge, MOTD, and stats boxes up!
 		badgeY = 44
 		lineY = 82
-		motdY1 = 100
-		motdY2 = 124
+		motdY1 = 98
+		motdY2 = 120
+		boxY = 142
 	}
-	// 5. Status Badge
 	badgeX, badgeW, badgeH := contentX, 108, 24
 	badgeRadius := 4
 	if !data.Rounded {
@@ -189,7 +201,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 	drawNormalText(img, edX, badgeY+5, edLabel, secText)
 
-	drawHLine(img, contentX, BannerWidth-48, lineY, borderColor)
+	drawHLine(img, contentX, canvasW-36, lineY, borderColor)
 
 	// 7. MOTD
 	motdText := data.MOTD
@@ -208,7 +220,7 @@ func RenderDefaultImage(data *WidgetData) (*image.RGBA, error) {
 	}
 
 	// 8. Stats Boxes (PLAYERS, PROTOCOL, PING)
-	boxW, boxH, boxY := 200, 46, 170
+	boxW, boxH := 200, 46
 
 	box1X := contentX
 	drawRectOutline(img, box1X, boxY, boxW, boxH, borderColor)
