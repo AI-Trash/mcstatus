@@ -36,6 +36,12 @@ func hasMCGlyph(r rune) bool {
 
 // selectMCRuneFace returns the font.Face to render rune r with bold/italic.
 func selectMCRuneFace(r rune, bold, italic bool) font.Face {
+	if r >= 0 && r < 128 && mcBMFace != nil {
+		if bold && mcBMBoldFace != nil {
+			return mcBMBoldFace
+		}
+		return mcBMFace
+	}
 	if hasMCGlyph(r) {
 		if bold && italic && mcBoldItalicFace != nil {
 			return mcBoldItalicFace
@@ -91,7 +97,7 @@ func measureMCText(text string, bold, italic bool) int {
 func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic bool) int {
 	face := selectMCRuneFace(r, bold, italic)
 	shadow := mcShadowColor(col)
-	isCJK := !hasMCGlyph(r)
+	isCJK := r >= 128 && !hasMCGlyph(r)
 
 	// Draw shadow offset by +2, +2
 	dShadow := &font.Drawer{

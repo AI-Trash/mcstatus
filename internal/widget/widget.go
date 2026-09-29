@@ -47,6 +47,8 @@ var (
 	mcItalicFace     font.Face
 	mcBoldItalicFace font.Face
 	mcCJKFace        font.Face
+	mcBMFace         font.Face
+	mcBMBoldFace     font.Face
 	mcSfntFont       *sfnt.Font
 )
 
@@ -73,10 +75,18 @@ func init() {
 		normalFace = basicfont.Face7x13
 	}
 
-	// 2. Initialize Minecraft pixel fonts (Size: 16, DPI: 72)
+	// 2. Initialize Minecraft BMFont bitmap face
+	initBMFont()
+	if mcBMFont != nil {
+		mcBMFace = &BMFontFace{Font: mcBMFont, Sheet: mcBMMask, Bold: false}
+		mcBMBoldFace = &BMFontFace{Font: mcBMFont, Sheet: mcBMMask, Bold: true}
+	}
+
+	// 3. Initialize Minecraft pixel fonts with HintingFull
 	mcOpts := &opentype.FaceOptions{
-		Size: 16,
-		DPI:  72,
+		Size:    16,
+		DPI:     72,
+		Hinting: font.HintingFull,
 	}
 
 	if assets.MinecraftRegular != nil {

@@ -32,6 +32,8 @@ var MinecraftBoldItalicBytes []byte
 //go:embed unifont.otf.gz
 var unifontGzBytes []byte
 
+//go:embed ascii.png
+var MinecraftASCIIBytes []byte
 var (
 	DefaultIcon         image.Image
 	DefaultFont         *opentype.Font // Zpix (CJK pixel font)
@@ -40,6 +42,7 @@ var (
 	MinecraftItalic     *opentype.Font
 	MinecraftBoldItalic *opentype.Font
 	Unifont             *opentype.Font // GNU Unifont (Official Minecraft Java fallback)
+	MinecraftASCIIImage image.Image
 )
 
 func init() {
@@ -47,6 +50,10 @@ func init() {
 	DefaultIcon, err = png.Decode(bytes.NewReader(DefaultIconBytes))
 	if err != nil {
 		panic("failed to decode embedded default icon: " + err.Error())
+	}
+	MinecraftASCIIImage, _, err = image.Decode(bytes.NewReader(MinecraftASCIIBytes))
+	if err != nil {
+		panic("failed to decode embedded ascii.png: " + err.Error())
 	}
 
 	gr, err := gzip.NewReader(bytes.NewReader(fontGzBytes))

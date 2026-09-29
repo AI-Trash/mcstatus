@@ -1,3 +1,5 @@
+github.com/fzipp/bmfont v0.1.0 h1:NQD6wE4iyzxtv17VIU4ElHT664JTHCBOxZ6ovMQtW2Q=
+github.com/fzipp/bmfont v0.1.0/go.mod h1:kxBN1rXE270owmgDhE7V/M3PKkSu8weCQ1VfWSmH+Fk=
 github.com/gen2brain/gav1d v0.2.5 h1:Zg5/DE1JBdf8kxZqIvNo2ZEizF9DVF9jdPTAKJQZbOY=
 github.com/gen2brain/gav1d v0.2.5/go.mod h1:ReFKjHq7pvRhEk+pgRPAo9gOlcrf51sdzVcAbbX7e0E=
 github.com/lmittmann/tint v1.2.0 h1:AogHRHy8HUJUnNJBHJlYa+fR4YY8mko2cnCp67xn9JY=
