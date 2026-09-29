@@ -118,8 +118,8 @@ func ConvertImageBytes(raw []byte, targetFormat string) ([]byte, string, error) 
 	return EncodeImage(img, "avif")
 }
 
-// DecodeBase64Image decodes a base64-encoded image string (Data URI or raw base64).
-func DecodeBase64Image(s string) (image.Image, error) {
+// DecodeBase64Bytes decodes a base64-encoded string (Data URI or raw base64) into raw bytes.
+func DecodeBase64Bytes(s string) ([]byte, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, errors.New("empty base64 string")
@@ -130,9 +130,15 @@ func DecodeBase64Image(s string) (image.Image, error) {
 	data, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		data, err = base64.RawStdEncoding.DecodeString(s)
-		if err != nil {
-			return nil, err
-		}
+	}
+	return data, err
+}
+
+// DecodeBase64Image decodes a base64-encoded image string (Data URI or raw base64).
+func DecodeBase64Image(s string) (image.Image, error) {
+	data, err := DecodeBase64Bytes(s)
+	if err != nil {
+		return nil, err
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	return img, err

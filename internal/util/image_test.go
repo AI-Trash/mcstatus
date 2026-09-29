@@ -115,3 +115,21 @@ func TestConvertImageBytes(t *testing.T) {
 		t.Errorf("PNG passthrough unexpected result")
 	}
 }
+func TestDecodeBase64(t *testing.T) {
+	// Standard data URI
+	dataUri := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+	raw, err := util.DecodeBase64Bytes(dataUri)
+	if err != nil || len(raw) == 0 {
+		t.Fatalf("DecodeBase64Bytes failed: %v", err)
+	}
+
+	img, err := util.DecodeBase64Image(dataUri)
+	if err != nil || img == nil {
+		t.Fatalf("DecodeBase64Image failed: %v", err)
+	}
+
+	// Empty
+	if _, err := util.DecodeBase64Bytes(""); err == nil {
+		t.Error("expected error on empty string")
+	}
+}

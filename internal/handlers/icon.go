@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"mcstatus/internal/cache"
 	"mcstatus/internal/config"
 	"mcstatus/internal/resolver"
+	"mcstatus/internal/util"
 )
 
 // fetchIcon queries the Java server status fast without full query and returns PNG bytes.
@@ -36,22 +36,10 @@ func fetchIcon(host string, port uint16, timeout time.Duration) []byte {
 	}
 
 	favicon := *resp.Favicon
-	const prefix = "data:image/png;base64,"
-	if !strings.HasPrefix(favicon, prefix) {
-		return assets.DefaultIconBytes
+	if decoded, err := util.DecodeBase64Bytes(favicon); err == nil && len(decoded) > 0 {
+		return decoded
 	}
-
-	payload := strings.TrimPrefix(favicon, prefix)
-	payload = strings.TrimSpace(payload)
-	decoded, decodeErr := base64.StdEncoding.DecodeString(payload)
-	if decodeErr != nil {
-		decoded, decodeErr = base64.RawStdEncoding.DecodeString(payload)
-	}
-	if decodeErr != nil || len(decoded) == 0 {
-		return assets.DefaultIconBytes
-	}
-
-	return decoded
+	return assets.DefaultIconBytes
 }
 
 // HandleIcon handles GET /v2/icon and /v2/icon/{address} requests.

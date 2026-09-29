@@ -31,9 +31,9 @@ func TestParseWidgetBool(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := parseWidgetBool(tt.val, tt.defaultVal)
+		got := ParseBool(tt.val, tt.defaultVal)
 		if got != tt.expected {
-			t.Errorf("parseWidgetBool(%q, %v) = %v; want %v", tt.val, tt.defaultVal, got, tt.expected)
+			t.Errorf("ParseBool(%q, %v) = %v; want %v", tt.val, tt.defaultVal, got, tt.expected)
 		}
 	}
 }

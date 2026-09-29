@@ -29,10 +29,6 @@ func decodeBase64Icon(iconStr *string) image.Image {
 	return img
 }
 
-// parseWidgetBool is an alias for ParseBool for backward compatibility.
-func parseWidgetBool(val string, defaultVal bool) bool {
-	return ParseBool(val, defaultVal)
-}
 
 // HandleJavaWidget handles HTTP requests to generate widget image for Java Minecraft servers.
 func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockList) http.HandlerFunc {
