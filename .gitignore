@@ -35,3 +35,4 @@ Thumbs.db
 # Release artifacts & samples
 dist/
 sample_*.png
+asyncraft*.png
