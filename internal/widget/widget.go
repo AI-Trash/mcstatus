@@ -13,6 +13,8 @@ import (
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/font/sfnt"
 
+	"github.com/KarpelesLab/gofreetype/bdf"
+
 	"mcstatus/internal/assets"
 	"mcstatus/internal/util"
 )
@@ -47,8 +49,7 @@ var (
 	mcItalicFace     font.Face
 	mcBoldItalicFace font.Face
 	mcCJKFace        font.Face
-	mcBMFace         font.Face
-	mcBMBoldFace     font.Face
+	mcBDFFace        font.Face
 	mcSfntFont       *sfnt.Font
 )
 
@@ -75,13 +76,12 @@ func init() {
 		normalFace = basicfont.Face7x13
 	}
 
-	// 2. Initialize Minecraft BMFont bitmap face
-	initBMFont()
-	if mcBMFont != nil {
-		mcBMFace = &BMFontFace{Font: mcBMFont, Sheet: mcBMMask, Bold: false}
-		mcBMBoldFace = &BMFontFace{Font: mcBMFont, Sheet: mcBMMask, Bold: true}
+	// 2. Initialize Minecraft BDF bitmap face via gofreetype/bdf
+	if len(assets.MinecraftBDFBytes) > 0 {
+		if bdfFont, err := bdf.Parse(assets.MinecraftBDFBytes); err == nil {
+			mcBDFFace = bdf.NewFace(bdfFont)
+		}
 	}
-
 	// 3. Initialize Minecraft pixel fonts with HintingFull
 	mcOpts := &opentype.FaceOptions{
 		Size:    16,
@@ -137,11 +137,7 @@ func init() {
 	}
 
 	// SFNT glyph inspector
-	if len(assets.MinecraftRegularBytes) > 0 {
-		if sfntF, err := sfnt.Parse(assets.MinecraftRegularBytes); err == nil {
-			mcSfntFont = sfntF
-		}
-	}
+	mcSfntFont = assets.MinecraftRegular
 }
 
 // RenderImage generates the raw *image.RGBA canvas based on data.Style.

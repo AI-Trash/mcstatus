@@ -36,11 +36,8 @@ func hasMCGlyph(r rune) bool {
 
 // selectMCRuneFace returns the font.Face to render rune r with bold/italic.
 func selectMCRuneFace(r rune, bold, italic bool) font.Face {
-	if r >= 0 && r < 128 && mcBMFace != nil {
-		if bold && mcBMBoldFace != nil {
-			return mcBMBoldFace
-		}
-		return mcBMFace
+	if r >= 0 && r < 128 && mcBDFFace != nil {
+		return mcBDFFace
 	}
 	if hasMCGlyph(r) {
 		if bold && italic && mcBoldItalicFace != nil {
@@ -97,7 +94,7 @@ func measureMCText(text string, bold, italic bool) int {
 func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic bool) int {
 	face := selectMCRuneFace(r, bold, italic)
 	shadow := mcShadowColor(col)
-	isCJK := r >= 128 && !hasMCGlyph(r)
+	needsPseudoBold := bold && (r < 128 || !hasMCGlyph(r))
 
 	// Draw shadow offset by +2, +2
 	dShadow := &font.Drawer{
@@ -108,7 +105,7 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 	}
 	dShadow.DrawString(string(r))
 
-	if bold && isCJK {
+	if needsPseudoBold {
 		dShadowBold := &font.Drawer{
 			Dst:  dst,
 			Src:  image.NewUniform(shadow),
@@ -127,7 +124,7 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 	}
 	dText.DrawString(string(r))
 
-	if bold && isCJK {
+	if needsPseudoBold {
 		dTextBold := &font.Drawer{
 			Dst:  dst,
 			Src:  image.NewUniform(col),
@@ -142,7 +139,7 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 	if ok {
 		width = adv.Ceil()
 	}
-	if bold && isCJK {
+	if needsPseudoBold {
 		width++
 	}
 	return width
