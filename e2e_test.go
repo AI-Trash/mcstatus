@@ -204,8 +204,8 @@ func TestE2EIconEndpoints(t *testing.T) {
 	ts := setupTestServer()
 	defer ts.Close()
 
-	// Default icon
-	resp, err := http.Get(ts.URL + "/v2/icon")
+	// Default icon with explicit format=png
+	resp, err := http.Get(ts.URL + "/v2/icon?format=png")
 	if err != nil {
 		t.Fatalf("GET /v2/icon error: %v", err)
 	}
@@ -224,14 +224,24 @@ func TestE2EIconEndpoints(t *testing.T) {
 	if img.Bounds().Dx() != 64 || img.Bounds().Dy() != 64 {
 		t.Fatalf("expected 64x64 icon, got %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
 	}
+
+	// Verify default without format serves WebP
+	respWebp, err := http.Get(ts.URL + "/v2/icon")
+	if err != nil {
+		t.Fatalf("GET /v2/icon default error: %v", err)
+	}
+	defer respWebp.Body.Close()
+	if respWebp.Header.Get("Content-Type") != "image/webp" {
+		t.Fatalf("expected default image/webp, got %s", respWebp.Header.Get("Content-Type"))
+	}
 }
 
 func TestE2EWidgetEndpoints(t *testing.T) {
 	ts := setupTestServer()
 	defer ts.Close()
 
-	// Java widget for offline server
-	jUrl := ts.URL + "/v2/widget/java/127.0.0.1:9999?timeout=0.1"
+	// Java widget with explicit format=png
+	jUrl := ts.URL + "/v2/widget/java/127.0.0.1:9999?timeout=0.1&format=png"
 	jResp, err := http.Get(jUrl)
 	if err != nil {
 		t.Fatalf("GET java widget error: %v", err)
@@ -252,8 +262,18 @@ func TestE2EWidgetEndpoints(t *testing.T) {
 		t.Fatalf("expected 860x240 widget, got %dx%d", jImg.Bounds().Dx(), jImg.Bounds().Dy())
 	}
 
-	// Bedrock widget for offline server
-	bUrl := ts.URL + "/v2/widget/bedrock/127.0.0.1:19133?timeout=0.1"
+	// Java widget with default format (webp)
+	jWebpResp, err := http.Get(ts.URL + "/v2/widget/java/127.0.0.1:9999?timeout=0.1")
+	if err != nil {
+		t.Fatalf("GET java widget webp error: %v", err)
+	}
+	defer jWebpResp.Body.Close()
+	if jWebpResp.Header.Get("Content-Type") != "image/webp" {
+		t.Fatalf("expected default image/webp, got %s", jWebpResp.Header.Get("Content-Type"))
+	}
+
+	// Bedrock widget with explicit format=png
+	bUrl := ts.URL + "/v2/widget/bedrock/127.0.0.1:19133?timeout=0.1&format=png"
 	bResp, err := http.Get(bUrl)
 	if err != nil {
 		t.Fatalf("GET bedrock widget error: %v", err)
@@ -262,6 +282,9 @@ func TestE2EWidgetEndpoints(t *testing.T) {
 
 	if bResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", bResp.StatusCode)
+	}
+	if bResp.Header.Get("Content-Type") != "image/png" {
+		t.Fatalf("expected image/png, got %s", bResp.Header.Get("Content-Type"))
 	}
 	bImg, err := png.Decode(bResp.Body)
 	if err != nil {

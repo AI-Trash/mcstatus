@@ -91,7 +91,7 @@ func TestServerDefaultIcon(t *testing.T) {
 	srv := New(cfg)
 	handler := srv.Handler()
 
-	req := httptest.NewRequest(http.MethodGet, "/v2/icon", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v2/icon?format=png", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -103,5 +103,16 @@ func TestServerDefaultIcon(t *testing.T) {
 	}
 	if rec.Body.Len() != 3143 {
 		t.Fatalf("expected default icon length 3143, got %d", rec.Body.Len())
+	}
+
+	// Test default without format is WebP
+	reqWebp := httptest.NewRequest(http.MethodGet, "/v2/icon", nil)
+	recWebp := httptest.NewRecorder()
+	handler.ServeHTTP(recWebp, reqWebp)
+	if recWebp.Code != http.StatusOK {
+		t.Fatalf("expected /v2/icon default 200, got %d", recWebp.Code)
+	}
+	if ct := recWebp.Header().Get("Content-Type"); ct != "image/webp" {
+		t.Fatalf("expected default Content-Type image/webp, got %s", ct)
 	}
 }

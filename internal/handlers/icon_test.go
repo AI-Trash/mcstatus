@@ -20,9 +20,9 @@ func TestHandleIconEmptyAddress(t *testing.T) {
 
 	handler := HandleIcon(cfg, c)
 
-	// Case 1: GET /v2/icon
+	// Case 1: GET /v2/icon?format=png
 	{
-		req := httptest.NewRequest(http.MethodGet, "/v2/icon", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v2/icon?format=png", nil)
 		w := httptest.NewRecorder()
 		handler(w, req)
 
@@ -39,9 +39,9 @@ func TestHandleIconEmptyAddress(t *testing.T) {
 		}
 	}
 
-	// Case 2: GET /v2/icon/
+	// Case 2: GET /v2/icon (default format=webp)
 	{
-		req := httptest.NewRequest(http.MethodGet, "/v2/icon/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v2/icon", nil)
 		w := httptest.NewRecorder()
 		handler(w, req)
 
@@ -49,12 +49,8 @@ func TestHandleIconEmptyAddress(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("expected status 200, got %d", resp.StatusCode)
 		}
-		if resp.Header.Get("Content-Type") != "image/png" {
-			t.Fatalf("expected Content-Type image/png, got %s", resp.Header.Get("Content-Type"))
-		}
-		body, _ := io.ReadAll(resp.Body)
-		if !bytes.Equal(body, assets.DefaultIconBytes) {
-			t.Fatalf("expected DefaultIconBytes, got %d bytes", len(body))
+		if resp.Header.Get("Content-Type") != "image/webp" {
+			t.Fatalf("expected Content-Type image/webp, got %s", resp.Header.Get("Content-Type"))
 		}
 	}
 }
@@ -89,8 +85,8 @@ func TestHandleIconOfflineServer(t *testing.T) {
 
 	handler := HandleIcon(cfg, c)
 
-	// First request: cache miss, offline server falls back to DefaultIconBytes
-	req := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05", nil)
+	// First request: cache miss, offline server falls back to DefaultIconBytes (?format=png)
+	req := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05&format=png", nil)
 	w := httptest.NewRecorder()
 	handler(w, req)
 
@@ -115,7 +111,7 @@ func TestHandleIconOfflineServer(t *testing.T) {
 	}
 
 	// Second request: cache hit
-	req2 := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05&format=png", nil)
 	w2 := httptest.NewRecorder()
 	handler(w2, req2)
 
@@ -128,7 +124,7 @@ func TestHandleIconOfflineServer(t *testing.T) {
 	}
 
 	// Third request: If-None-Match ETag check -> 304 Not Modified
-	req3 := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05", nil)
+	req3 := httptest.NewRequest(http.MethodGet, "/v2/icon/127.0.0.1:59998?timeout=0.05&format=png", nil)
 	req3.Header.Set("If-None-Match", etag)
 	w3 := httptest.NewRecorder()
 	handler(w3, req3)

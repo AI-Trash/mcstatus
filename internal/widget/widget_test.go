@@ -6,8 +6,13 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	gavif "github.com/gen2brain/gav1d/avif"
+	"github.com/gen2brain/jpegxl"
+	"github.com/gen2brain/webp"
 	_ "golang.org/x/image/font/sfnt"
 
 	"mcstatus/internal/assets"
@@ -380,4 +385,89 @@ func TestGenerateReviewImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("Successfully wrote %s", outPath)
+}
+func TestBenchmarkRealWidgetSizes(t *testing.T) {
+	data := &WidgetData{
+		Online:        true,
+		Host:          "games.mc.asyncraft.club",
+		Port:          25565,
+		Edition:       "Java Edition",
+		Version:       "1.20.4",
+		PlayersOnline: 42,
+		PlayersMax:    500,
+		MOTD:          "Asyncraft服务器\n -> 🎮 小游戏 🎮",
+		MOTDRaw:       "§#55ffffA§#74ffffs§#93ffffy§#b2ffffn§#d1ffffc§#f0ffffra§#d1fffff§#b2fffft§#93ffff服§#74ffff务§#55ffff器\n§e -> 🎮 小游戏 🎮",
+		Dark:          true,
+		Rounded:       false,
+		Transparent:   false,
+	}
+
+	cases := []struct {
+		style string
+	}{
+		{"minecraft"},
+		{"default"},
+	}
+
+	tempDir := os.Getenv("TEMP")
+
+	for _, tc := range cases {
+		d := *data
+		d.Style = tc.style
+		rawImg, err := RenderImage(&d)
+		if err != nil {
+			t.Fatalf("RenderImage(%s) failed: %v", tc.style, err)
+		}
+
+		t.Logf("=================================================================")
+		t.Logf(" REAL WIDGET BENCHMARK: style=%s (bounds=%v)", tc.style, rawImg.Bounds())
+		t.Logf("=================================================================")
+
+		// 1. Lossless PNG
+		t0 := time.Now()
+		var pngBuf bytes.Buffer
+		_ = png.Encode(&pngBuf, rawImg)
+		durPNG := time.Since(t0)
+		pngSize := pngBuf.Len()
+		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".png"), pngBuf.Bytes(), 0644)
+		t.Logf(" [Lossless PNG]        %6d bytes | 100.0%% (baseline) | %v", pngSize, durPNG)
+
+		// 2. Lossless WebP (Default Method 4)
+		t0 = time.Now()
+		var webpBuf4 bytes.Buffer
+		_ = webp.Encode(&webpBuf4, rawImg, webp.Options{Lossless: true, Method: 4})
+		durWebP4 := time.Since(t0)
+		t.Logf(" [Lossless WebP m=4]   %6d bytes | %5.1f%% vs PNG    | %v", webpBuf4.Len(), float64(webpBuf4.Len())/float64(pngSize)*100, durWebP4)
+
+		// 3. Lossless WebP (Max Method 6)
+		t0 = time.Now()
+		var webpBuf6 bytes.Buffer
+		_ = webp.Encode(&webpBuf6, rawImg, webp.Options{Lossless: true, Method: 6})
+		durWebP6 := time.Since(t0)
+		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".webp"), webpBuf6.Bytes(), 0644)
+		t.Logf(" [Lossless WebP m=6]   %6d bytes | %5.1f%% vs PNG    | %v", webpBuf6.Len(), float64(webpBuf6.Len())/float64(pngSize)*100, durWebP6)
+
+		// 4. Lossless JXL (Effort 7)
+		t0 = time.Now()
+		var jxlBuf7 bytes.Buffer
+		_ = jpegxl.Encode(&jxlBuf7, rawImg, jpegxl.Options{Lossless: true, Effort: 7})
+		durJXL7 := time.Since(t0)
+		t.Logf(" [Lossless JXL e=7]    %6d bytes | %5.1f%% vs PNG    | %v", jxlBuf7.Len(), float64(jxlBuf7.Len())/float64(pngSize)*100, durJXL7)
+
+		// 5. Lossless JXL (Effort 9)
+		t0 = time.Now()
+		var jxlBuf9 bytes.Buffer
+		_ = jpegxl.Encode(&jxlBuf9, rawImg, jpegxl.Options{Lossless: true, Effort: 9})
+		durJXL9 := time.Since(t0)
+		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".jxl"), jxlBuf9.Bytes(), 0644)
+		t.Logf(" [Lossless JXL e=9]    %6d bytes | %5.1f%% vs PNG    | %v", jxlBuf9.Len(), float64(jxlBuf9.Len())/float64(pngSize)*100, durJXL9)
+
+		// 6. Lossless AVIF (Speed 6)
+		t0 = time.Now()
+		var avifBuf bytes.Buffer
+		_ = gavif.Encode(&avifBuf, rawImg, gavif.EncodeOptions{Lossless: true, Speed: 6})
+		durAVIF := time.Since(t0)
+		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".avif"), avifBuf.Bytes(), 0644)
+		t.Logf(" [Lossless AVIF s=6]   %6d bytes | %5.1f%% vs PNG    | %v", avifBuf.Len(), float64(avifBuf.Len())/float64(pngSize)*100, durAVIF)
+	}
 }

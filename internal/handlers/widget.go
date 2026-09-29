@@ -67,11 +67,12 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			ttl = cfg.CacheTTL
 		}
 
+		format := util.ResolveImageFormat(r)
 		titleKey := "default"
 		if titlePtr != nil {
 			titleKey = *titlePtr
 		}
-		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey)
+		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s:%t:%s:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey, format)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
 
@@ -107,11 +108,11 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 				}
 			}
 
-			pngBytes, err := widget.Render(widgetData)
+			img, err := widget.RenderImage(widgetData)
 			if err != nil {
 				return nil, "", err
 			}
-			return pngBytes, "image/png", nil
+			return util.EncodeImage(img, format)
 		})
 	}
 }
@@ -153,11 +154,12 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			ttl = cfg.CacheTTL
 		}
 
+		format := util.ResolveImageFormat(r)
 		titleKey := "default"
 		if titlePtr != nil {
 			titleKey = *titlePtr
 		}
-		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey)
+		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s:%t:%s:%s", strings.ToLower(host), port, dark, rounded, transparent, style, hideIcon, titleKey, format)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
 
@@ -194,11 +196,11 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 				}
 			}
 
-			pngBytes, err := widget.Render(widgetData)
+			img, err := widget.RenderImage(widgetData)
 			if err != nil {
 				return nil, "", err
 			}
-			return pngBytes, "image/png", nil
+			return util.EncodeImage(img, format)
 		})
 	}
 }

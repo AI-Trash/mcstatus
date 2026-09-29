@@ -77,7 +77,7 @@ func TestHandleJavaWidget(t *testing.T) {
 	handler := HandleJavaWidget(cfg, c, bl)
 
 	t.Run("Valid address (offline server)", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v2/widget/java/127.0.0.1:25599?dark=false&rounded=false&timeout=0.1", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v2/widget/java/127.0.0.1:25599?dark=false&rounded=false&timeout=0.1&format=png", nil)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -107,6 +107,19 @@ func TestHandleJavaWidget(t *testing.T) {
 
 		if img.Bounds().Dx() != 860 || img.Bounds().Dy() != 240 {
 			t.Fatalf("unexpected dimensions: %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	})
+	t.Run("Default format serves webp", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v2/widget/java/127.0.0.1:25599?timeout=0.1", nil)
+		w := httptest.NewRecorder()
+		handler(w, req)
+		resp := w.Result()
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 OK, got %d", resp.StatusCode)
+		}
+		if ct := resp.Header.Get("Content-Type"); ct != "image/webp" {
+			t.Fatalf("expected default Content-Type image/webp, got %s", ct)
 		}
 	})
 
@@ -181,7 +194,7 @@ func TestHandleBedrockWidget(t *testing.T) {
 	handler := HandleBedrockWidget(cfg, c, bl)
 
 	t.Run("Valid address (offline Bedrock server)", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v2/widget/bedrock/127.0.0.1:19199?dark=true&rounded=true&transparent=true&timeout=0.1", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v2/widget/bedrock/127.0.0.1:19199?dark=true&rounded=true&transparent=true&timeout=0.1&format=png", nil)
 		w := httptest.NewRecorder()
 
 		handler(w, req)

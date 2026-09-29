@@ -15,6 +15,11 @@ require (
 )
 
 require (
+	github.com/andybalholm/brotli v1.2.1 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
+	github.com/gen2brain/jpegxl v0.6.0 // indirect
+	github.com/gen2brain/webp v0.6.4 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )

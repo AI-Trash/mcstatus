@@ -66,10 +66,10 @@ go run ./cmd/server
 | :--- | :--- | :--- | :--- |
 | `/v2/status/java/:address` | `GET` | 查询 Java 版服务器状态 | `query=true`（默认 true）、`timeout=5.0` |
 | `/v2/status/bedrock/:address` | `GET` | 查询基岩版服务器状态 | `timeout=5.0` |
-| `/v2/icon/:address` | `GET` | 获取 Java 版服务器图标（PNG） | `timeout=5.0`（缺失或离线回退默认图标） |
-| `/v2/icon` | `GET` | 获取默认服务器图标（PNG） | — |
-| `/v2/widget/java/:address` | `GET` | 生成 Java 版卡片挂件（默认 860×240 或 Minecraft 650×88 原版风格） | `style=default/minecraft`、`icon=true/false`、`address=true/false`（自适应紧凑排版）、`dark=true`、`rounded=true`、`transparent=false` |
-| `/v2/widget/bedrock/:address` | `GET` | 生成基岩版卡片挂件（默认 860×240 或 Minecraft 650×88 原版风格） | `style=default/minecraft`、`icon=true/false`、`address=true/false`（自适应紧凑排版）、`dark=true`、`rounded=true`、`transparent=false` |
+| `/v2/icon/:address` | `GET` | 获取 Java 版服务器图标 | `format=webp/png/jxl/avif`（默认 webp）、`timeout=5.0` |
+| `/v2/icon` | `GET` | 获取默认服务器图标 | `format=webp/png/jxl/avif`（默认 webp） |
+| `/v2/widget/java/:address` | `GET` | 生成 Java 版卡片挂件 | `style=default/minecraft`、`format=webp/png/jxl/avif`（默认 webp）、`icon=true/false`、`title=...`、`dark=true`、`rounded=true`、`transparent=false` |
+| `/v2/widget/bedrock/:address` | `GET` | 生成基岩版卡片挂件 | `style=default/minecraft`、`format=webp/png/jxl/avif`（默认 webp）、`icon=true/false`、`title=...`、`dark=true`、`rounded=true`、`transparent=false` |
 | `/v2/vote` | `POST` | 发送 Votifier 投票 | 支持 Votifier 1 & 2 协议参数 |
 | `/health` | `GET` | 健康检查探针 | — |
 

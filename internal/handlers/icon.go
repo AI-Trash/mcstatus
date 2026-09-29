@@ -54,10 +54,15 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 		}
 
 		address := ExtractAddress(r, "/v2/icon", "/icon")
+		format := util.ResolveImageFormat(r)
 		if address == "" {
-			w.Header().Set("Content-Type", "image/png")
+			data, mime, err := util.ConvertImageBytes(assets.DefaultIconBytes, format)
+			if err != nil {
+				data, mime = assets.DefaultIconBytes, "image/png"
+			}
+			w.Header().Set("Content-Type", mime)
 			w.WriteHeader(http.StatusOK)
-			w.Write(assets.DefaultIconBytes)
+			w.Write(data)
 			return
 		}
 
@@ -74,10 +79,10 @@ func HandleIcon(cfg *config.Config, c *cache.Cache) http.HandlerFunc {
 		if cfg != nil && cfg.CacheTTL > 0 {
 			ttl = cfg.CacheTTL
 		}
-		cacheKey := fmt.Sprintf("icon:%s:%d", strings.ToLower(host), port)
+		cacheKey := fmt.Sprintf("icon:%s:%d:%s", strings.ToLower(host), port, format)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			iconBytes := fetchIcon(host, port, timeout)
-			return iconBytes, "image/png", nil
+			return util.ConvertImageBytes(iconBytes, format)
 		})
 	}
 }
