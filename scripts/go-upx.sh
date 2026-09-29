@@ -23,6 +23,6 @@ if [ "$1" = "build" ]; then
 
     if [ -n "$out" ] && [ -f "$out" ] && command -v upx >/dev/null 2>&1; then
         echo "[go-upx] Compressing $out with UPX..."
-        upx -1 "$out" || true
+        upx --best --lzma "$out" || true
     fi
 fi
