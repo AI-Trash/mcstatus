@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"archive/tar"
 	"bytes"
 	_ "embed"
 	"image"
@@ -13,24 +14,14 @@ import (
 
 //go:embed default_icon.png
 var DefaultIconBytes []byte
-
-//go:embed font.ttf.zst
-var fontZstBytes []byte
+//go:embed zpix.ttf.zst
+var zpixZstBytes []byte
 
 //go:embed unifont.otf.zst
 var unifontZstBytes []byte
 
-//go:embed MinecraftRegular.otf
-var MinecraftRegularBytes []byte
-
-//go:embed MinecraftBold.otf
-var MinecraftBoldBytes []byte
-
-//go:embed MinecraftItalic.otf
-var MinecraftItalicBytes []byte
-
-//go:embed MinecraftBoldItalic.otf
-var MinecraftBoldItalicBytes []byte
+//go:embed minecraft_family.tar.zst
+var minecraftFamilyTarZstBytes []byte
 
 //go:embed ascii.png
 var MinecraftASCIIBytes []byte
@@ -39,14 +30,15 @@ var MinecraftASCIIBytes []byte
 var MinecraftFNTBytes []byte
 
 var (
-	DefaultIcon         image.Image
-	DefaultFont         *opentype.Font // Zpix (CJK pixel font)
-	MinecraftRegular    *opentype.Font
-	MinecraftBold       *opentype.Font
-	MinecraftItalic     *opentype.Font
-	MinecraftBoldItalic *opentype.Font
-	Unifont             *opentype.Font // GNU Unifont (Official Minecraft Java fallback)
-	MinecraftASCIIImage image.Image
+	DefaultIcon           image.Image
+	DefaultFont           *opentype.Font // Zpix (CJK pixel font)
+	MinecraftRegular      *opentype.Font
+	MinecraftBold         *opentype.Font
+	MinecraftItalic       *opentype.Font
+	MinecraftBoldItalic   *opentype.Font
+	Unifont               *opentype.Font // GNU Unifont (Official Minecraft Java fallback)
+	MinecraftASCIIImage   image.Image
+	MinecraftRegularBytes []byte
 )
 
 func decompressZstd(data []byte) ([]byte, error) {
@@ -65,18 +57,13 @@ func init() {
 		panic("failed to decode embedded default icon: " + err.Error())
 	}
 
-	MinecraftASCIIImage, _, err = image.Decode(bytes.NewReader(MinecraftASCIIBytes))
+	zpixBytes, err := decompressZstd(zpixZstBytes)
 	if err != nil {
-		panic("failed to decode embedded ascii.png: " + err.Error())
+		panic("failed to decompress zpix.ttf.zst: " + err.Error())
 	}
-
-	fontBytes, err := decompressZstd(fontZstBytes)
+	DefaultFont, err = opentype.Parse(zpixBytes)
 	if err != nil {
-		panic("failed to decompress font.ttf.zst: " + err.Error())
-	}
-	DefaultFont, err = opentype.Parse(fontBytes)
-	if err != nil {
-		panic("failed to parse font: " + err.Error())
+		panic("failed to parse zpix font: " + err.Error())
 	}
 
 	unifontBytes, err := decompressZstd(unifontZstBytes)
@@ -88,16 +75,35 @@ func init() {
 		panic("failed to parse unifont: " + err.Error())
 	}
 
-	if len(MinecraftRegularBytes) > 0 {
-		MinecraftRegular, _ = opentype.Parse(MinecraftRegularBytes)
+	// Decompress Minecraft font family from single solid archive
+	tarBytes, err := decompressZstd(minecraftFamilyTarZstBytes)
+	if err != nil {
+		panic("failed to decompress minecraft_family.tar.zst: " + err.Error())
 	}
-	if len(MinecraftBoldBytes) > 0 {
-		MinecraftBold, _ = opentype.Parse(MinecraftBoldBytes)
-	}
-	if len(MinecraftItalicBytes) > 0 {
-		MinecraftItalic, _ = opentype.Parse(MinecraftItalicBytes)
-	}
-	if len(MinecraftBoldItalicBytes) > 0 {
-		MinecraftBoldItalic, _ = opentype.Parse(MinecraftBoldItalicBytes)
+	tr := tar.NewReader(bytes.NewReader(tarBytes))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic("failed to read tar entry: " + err.Error())
+		}
+		data, err := io.ReadAll(tr)
+		if err != nil {
+			panic("failed to read font data: " + err.Error())
+		}
+
+		switch hdr.Name {
+		case "MinecraftRegular.otf":
+			MinecraftRegularBytes = data
+			MinecraftRegular, _ = opentype.Parse(data)
+		case "MinecraftBold.otf":
+			MinecraftBold, _ = opentype.Parse(data)
+		case "MinecraftItalic.otf":
+			MinecraftItalic, _ = opentype.Parse(data)
+		case "MinecraftBoldItalic.otf":
+			MinecraftBoldItalic, _ = opentype.Parse(data)
+		}
 	}
 }
