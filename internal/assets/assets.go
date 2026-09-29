@@ -17,9 +17,25 @@ var DefaultIconBytes []byte
 //go:embed font.ttf.gz
 var fontGzBytes []byte
 
+//go:embed MinecraftRegular.otf
+var MinecraftRegularBytes []byte
+
+//go:embed MinecraftBold.otf
+var MinecraftBoldBytes []byte
+
+//go:embed MinecraftItalic.otf
+var MinecraftItalicBytes []byte
+
+//go:embed MinecraftBoldItalic.otf
+var MinecraftBoldItalicBytes []byte
+
 var (
-	DefaultIcon image.Image
-	DefaultFont *opentype.Font
+	DefaultIcon         image.Image
+	DefaultFont         *opentype.Font // Zpix (CJK pixel font)
+	MinecraftRegular    *opentype.Font
+	MinecraftBold       *opentype.Font
+	MinecraftItalic     *opentype.Font
+	MinecraftBoldItalic *opentype.Font
 )
 
 func init() {
@@ -42,5 +58,25 @@ func init() {
 	DefaultFont, err = opentype.Parse(fontBytes)
 	if err != nil {
 		panic("failed to parse font: " + err.Error())
+	}
+
+	MinecraftRegular, err = opentype.Parse(MinecraftRegularBytes)
+	if err != nil {
+		panic("failed to parse MinecraftRegular font: " + err.Error())
+	}
+
+	MinecraftBold, err = opentype.Parse(MinecraftBoldBytes)
+	if err != nil {
+		panic("failed to parse MinecraftBold font: " + err.Error())
+	}
+
+	MinecraftItalic, err = opentype.Parse(MinecraftItalicBytes)
+	if err != nil {
+		panic("failed to parse MinecraftItalic font: " + err.Error())
+	}
+
+	MinecraftBoldItalic, err = opentype.Parse(MinecraftBoldItalicBytes)
+	if err != nil {
+		panic("failed to parse MinecraftBoldItalic font: " + err.Error())
 	}
 }

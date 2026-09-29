@@ -194,3 +194,55 @@ func TestRenderDefaultIconFallback(t *testing.T) {
 		t.Fatal("assets.DefaultIcon is nil")
 	}
 }
+
+func TestRenderMinecraftStyle(t *testing.T) {
+	data := &WidgetData{
+		Style:         "minecraft",
+		Online:        true,
+		Host:          "mc.hypixel.net",
+		Port:          25565,
+		Edition:       "Java Edition",
+		Version:       "1.21.4",
+		PlayersOnline: 35820,
+		PlayersMax:    100000,
+		MOTDRaw:       "§6§lHYPIXEL NETWORK §7[1.8-1.21]\n§a§lNEW UPDATE! §eSkyBlock & BedWars 欢迎游玩",
+		Dark:          true,
+		Rounded:       true,
+	}
+
+	buf, err := Render(data)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(buf))
+	if err != nil {
+		t.Fatalf("Failed to decode rendered PNG: %v", err)
+	}
+
+	if bounds := img.Bounds(); bounds.Dx() != MCWidth || bounds.Dy() != MCHeight {
+		t.Fatalf("Unexpected image dimensions: %dx%d, want %dx%d", bounds.Dx(), bounds.Dy(), MCWidth, MCHeight)
+	}
+}
+
+func TestRenderMinecraftOffline(t *testing.T) {
+	data := &WidgetData{
+		Style:   "minecraft",
+		Online:  false,
+		Host:    "offline.server.net",
+		Port:    25565,
+		Edition: "Java Edition",
+	}
+
+	buf, err := Render(data)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+	img, err := png.Decode(bytes.NewReader(buf))
+	if err != nil {
+		t.Fatalf("Failed to decode rendered PNG: %v", err)
+	}
+
+	if bounds := img.Bounds(); bounds.Dx() != MCWidth || bounds.Dy() != MCHeight {
+		t.Fatalf("Unexpected image dimensions: %dx%d, want %dx%d", bounds.Dx(), bounds.Dy(), MCWidth, MCHeight)
+	}
+}

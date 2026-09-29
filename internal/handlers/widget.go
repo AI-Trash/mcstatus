@@ -67,6 +67,7 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 		dark := ParseBool(r.URL.Query().Get("dark"), true)
 		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
+		style := strings.TrimSpace(r.URL.Query().Get("style"))
 		timeout := ParseTimeout(r, cfg)
 
 		ttl := 60 * time.Second
@@ -74,11 +75,12 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t", strings.ToLower(host), port, dark, rounded, transparent)
+		cacheKey := fmt.Sprintf("widget:java:%s:%d:%t:%t:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetJavaStatus(r.Context(), cfg, c, bl, host, port, true, timeout)
 
 			widgetData := &widget.WidgetData{
+				Style:       style,
 				Online:      false,
 				Host:        host,
 				Port:        port,
@@ -101,6 +103,7 @@ func HandleJavaWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.BlockLis
 					}
 					if resp.MOTD != nil {
 						widgetData.MOTD = resp.MOTD.Clean
+						widgetData.MOTDRaw = resp.MOTD.Raw
 					}
 					widgetData.Icon = decodeBase64Icon(resp.Icon)
 				}
@@ -138,6 +141,7 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 		dark := ParseBool(r.URL.Query().Get("dark"), true)
 		rounded := ParseBool(r.URL.Query().Get("rounded"), true)
 		transparent := ParseBool(r.URL.Query().Get("transparent"), false)
+		style := strings.TrimSpace(r.URL.Query().Get("style"))
 		timeout := ParseTimeout(r, cfg)
 
 		ttl := 60 * time.Second
@@ -145,11 +149,12 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 			ttl = cfg.CacheTTL
 		}
 
-		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t", strings.ToLower(host), port, dark, rounded, transparent)
+		cacheKey := fmt.Sprintf("widget:bedrock:%s:%d:%t:%t:%t:%s", strings.ToLower(host), port, dark, rounded, transparent, style)
 		ServeCached(w, r, c, cacheKey, ttl, func() ([]byte, string, error) {
 			resp, _, _ := GetBedrockStatus(r.Context(), cfg, c, bl, host, port, timeout)
 
 			widgetData := &widget.WidgetData{
+				Style:       style,
 				Online:      false,
 				Host:        host,
 				Port:        port,
@@ -175,6 +180,7 @@ func HandleBedrockWidget(cfg *config.Config, c *cache.Cache, bl *blocklist.Block
 				}
 				if resp.MOTD != nil {
 					widgetData.MOTD = resp.MOTD.Clean
+					widgetData.MOTDRaw = resp.MOTD.Raw
 				}
 			}
 

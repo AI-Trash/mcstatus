@@ -59,11 +59,10 @@ type TextSpan struct {
 	Obfuscated    bool
 }
 
-// Format formats any Minecraft MOTD (Chat Component map, array, or legacy string)
-// into a types.FormattedString supporting 1.16+ RGB Hex colors.
-func Format(desc any) *types.FormattedString {
+// ParseSpans parses any Minecraft MOTD into a slice of TextSpan.
+func ParseSpans(desc any) []TextSpan {
 	if desc == nil {
-		return &types.FormattedString{}
+		return nil
 	}
 
 	var spans []TextSpan
@@ -80,7 +79,17 @@ func Format(desc any) *types.FormattedString {
 	default:
 		spans = parseLegacyString(fmt.Sprint(v))
 	}
+	return spans
+}
 
+// Format formats any Minecraft MOTD (Chat Component map, array, or legacy string)
+// into a types.FormattedString supporting 1.16+ RGB Hex colors.
+func Format(desc any) *types.FormattedString {
+	if desc == nil {
+		return &types.FormattedString{}
+	}
+
+	spans := ParseSpans(desc)
 	clean := buildClean(spans)
 	html := buildHTML(spans)
 	raw := buildRaw(spans)

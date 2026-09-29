@@ -31,3 +31,7 @@ temp/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Release artifacts & samples
+dist/
+sample_*.png
