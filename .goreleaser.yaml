@@ -19,6 +19,9 @@ builds:
       - -s
       - -w
       - -X mcstatus/internal/version.Version={{.FullCommit}}
+upx:
+  - enabled: true
+    compress: best
 dockers_v2:
   - id: mcstatus
     images:
