@@ -14,6 +14,7 @@ import (
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 
 	"mcstatus/internal/assets"
@@ -27,6 +28,58 @@ const (
 	IconY        = 40
 	IconSize     = 80
 )
+
+var (
+	titleFace  font.Face
+	normalFace font.Face
+)
+
+func init() {
+	if assets.DefaultFont != nil {
+		var err error
+		titleFace, err = opentype.NewFace(assets.DefaultFont, &opentype.FaceOptions{
+			Size: 20,
+			DPI:  72,
+		})
+		if err != nil {
+			titleFace = basicfont.Face7x13
+		}
+		normalFace, err = opentype.NewFace(assets.DefaultFont, &opentype.FaceOptions{
+			Size: 12,
+			DPI:  72,
+		})
+		if err != nil {
+			normalFace = basicfont.Face7x13
+		}
+	} else {
+		titleFace = basicfont.Face7x13
+		normalFace = basicfont.Face7x13
+	}
+}
+
+func measureText(text string) int {
+	return (&font.Drawer{Face: normalFace}).MeasureString(text).Ceil()
+}
+
+func drawTitle(dst *image.RGBA, x, y int, text string, col color.Color) {
+	d := &font.Drawer{
+		Dst:  dst,
+		Src:  image.NewUniform(col),
+		Face: titleFace,
+		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y + 16)},
+	}
+	d.DrawString(text)
+}
+
+func drawText(dst *image.RGBA, x, y int, text string, col color.Color) {
+	d := &font.Drawer{
+		Dst:  dst,
+		Src:  image.NewUniform(col),
+		Face: normalFace,
+		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y + 11)},
+	}
+	d.DrawString(text)
+}
 
 // WidgetData holds all parameters needed to render a server status widget banner.
 type WidgetData struct {
@@ -64,107 +117,72 @@ func Render(data *WidgetData) ([]byte, error) {
 	)
 
 	if data.Dark {
-		bgColor = color.RGBA{R: 0x1e, G: 0x1e, B: 0x24, A: 0xff}
-		borderColor = color.RGBA{R: 0x33, G: 0x33, B: 0x3e, A: 0xff}
-		primaryText = color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
-		secondaryText = color.RGBA{R: 0x9c, G: 0xa3, B: 0xaf, A: 0xff}
-		motdText = color.RGBA{R: 0xd4, G: 0xd4, B: 0xd8, A: 0xff}
-		dividerColor = color.RGBA{R: 0x33, G: 0x33, B: 0x3e, A: 0xff}
-		brandingCol = color.RGBA{R: 0x71, G: 0x71, B: 0x7a, A: 0xff}
+		bgColor = color.RGBA{R: 0x16, G: 0x16, B: 0x18, A: 0xff}       // #161618
+		borderColor = color.RGBA{R: 0x2e, G: 0x2e, B: 0x32, A: 0xff}   // #2e2e32
+		primaryText = color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}   // white
+		secondaryText = color.RGBA{R: 0x8e, G: 0x8e, B: 0x93, A: 0xff} // gray
+		motdText = color.RGBA{R: 0xd1, G: 0xd1, B: 0xd6, A: 0xff}      // light gray
+		dividerColor = color.RGBA{R: 0x2e, G: 0x2e, B: 0x32, A: 0xff}  // dark divider
+		brandingCol = color.RGBA{R: 0x63, G: 0x63, B: 0x66, A: 0xff}   // muted
 	} else {
-		bgColor = color.RGBA{R: 0xf8, G: 0xf9, B: 0xfa, A: 0xff}
-		borderColor = color.RGBA{R: 0xe5, G: 0xe7, B: 0xeb, A: 0xff}
-		primaryText = color.RGBA{R: 0x11, G: 0x18, B: 0x27, A: 0xff}
-		secondaryText = color.RGBA{R: 0x6b, G: 0x72, B: 0x80, A: 0xff}
-		motdText = color.RGBA{R: 0x37, G: 0x41, B: 0x51, A: 0xff}
-		dividerColor = color.RGBA{R: 0xe5, G: 0xe7, B: 0xeb, A: 0xff}
-		brandingCol = color.RGBA{R: 0x9c, G: 0xa3, B: 0xaf, A: 0xff}
+		bgColor = color.RGBA{R: 0xf8, G: 0xf9, B: 0xfa, A: 0xff}       // #f8f9fa
+		borderColor = color.RGBA{R: 0xe5, G: 0xe7, B: 0xeb, A: 0xff}   // #e5e7eb
+		primaryText = color.RGBA{R: 0x11, G: 0x18, B: 0x27, A: 0xff}   // dark
+		secondaryText = color.RGBA{R: 0x6b, G: 0x72, B: 0x80, A: 0xff} // medium gray
+		motdText = color.RGBA{R: 0x37, G: 0x41, B: 0x51, A: 0xff}      // dark gray
+		dividerColor = color.RGBA{R: 0xe5, G: 0xe7, B: 0xeb, A: 0xff}  // light divider
+		brandingCol = color.RGBA{R: 0x9c, G: 0xa3, B: 0xaf, A: 0xff}   // muted
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, BannerWidth, BannerHeight))
 
-	// Draw background and border
 	if !data.Transparent {
-		r := float64(CornerRadius)
 		for y := range BannerHeight {
 			for x := range BannerWidth {
-				if !data.Rounded {
-					if x == 0 || x == BannerWidth-1 || y == 0 || y == BannerHeight-1 {
-						img.SetRGBA(x, y, borderColor)
-					} else {
-						img.SetRGBA(x, y, bgColor)
-					}
-					continue
-				}
+				img.SetRGBA(x, y, bgColor)
+			}
+		}
 
-				// Rounded corners check
-				var dx, dy float64
-				isCorner := false
-
-				if x < CornerRadius && y < CornerRadius { // top-left
-					dx = float64(CornerRadius - x)
-					dy = float64(CornerRadius - y)
-					isCorner = true
-				} else if x >= BannerWidth-CornerRadius && y < CornerRadius { // top-right
-					dx = float64(x - (BannerWidth - 1 - CornerRadius))
-					dy = float64(CornerRadius - y)
-					isCorner = true
-				} else if x < CornerRadius && y >= BannerHeight-CornerRadius { // bottom-left
-					dx = float64(CornerRadius - x)
-					dy = float64(y - (BannerHeight - 1 - CornerRadius))
-					isCorner = true
-				} else if x >= BannerWidth-CornerRadius && y >= BannerHeight-CornerRadius { // bottom-right
-					dx = float64(x - (BannerWidth - 1 - CornerRadius))
-					dy = float64(y - (BannerHeight - 1 - CornerRadius))
-					isCorner = true
-				}
-
-				if isCorner {
-					dist := math.Hypot(dx, dy)
-					if dist > r {
-						// Outside corner: leave transparent alpha 0
-						continue
-					} else if dist >= r-1.0 {
-						img.SetRGBA(x, y, borderColor)
-					} else {
-						img.SetRGBA(x, y, bgColor)
-					}
-				} else {
-					if x == 0 || x == BannerWidth-1 || y == 0 || y == BannerHeight-1 {
-						img.SetRGBA(x, y, borderColor)
-					} else {
-						img.SetRGBA(x, y, bgColor)
+		if data.Rounded {
+			r := CornerRadius
+			for y := range r {
+				for x := range r {
+					dx := r - x
+					dy := r - y
+					dist := math.Sqrt(float64(dx*dx + dy*dy))
+					if dist > float64(r) {
+						img.SetRGBA(x, y, color.RGBA{})
+						img.SetRGBA(BannerWidth-1-x, y, color.RGBA{})
+						img.SetRGBA(x, BannerHeight-1-y, color.RGBA{})
+						img.SetRGBA(BannerWidth-1-x, BannerHeight-1-y, color.RGBA{})
 					}
 				}
 			}
 		}
+
+		drawRectOutline(img, 0, 0, BannerWidth, BannerHeight, borderColor)
 	}
 
-	// Draw Server Icon at (32, 40), size 80x80
-	icon := data.Icon
-	if icon == nil {
-		icon = assets.DefaultIcon
+	serverIcon := data.Icon
+	if serverIcon == nil {
+		serverIcon = assets.DefaultIcon
 	}
-	if icon != nil {
-		iconRect := image.Rect(IconX, IconY, IconX+IconSize, IconY+IconSize)
-		draw.BiLinear.Scale(img, iconRect, icon, icon.Bounds(), draw.Over, nil)
+
+	if serverIcon != nil {
+		iconTargetRect := image.Rect(IconX, IconY, IconX+IconSize, IconY+IconSize)
+		draw.ApproxBiLinear.Scale(img, iconTargetRect, serverIcon, serverIcon.Bounds(), draw.Over, nil)
 		drawRectOutline(img, IconX-1, IconY-1, IconSize+2, IconSize+2, borderColor)
 	}
 
-	// Server address: Host or Host:Port
 	addr := data.Host
-	if addr == "" {
-		addr = "127.0.0.1"
-	}
 	if data.Port != 0 && data.Port != 25565 && data.Port != 19132 && !strings.Contains(data.Host, ":") {
 		addr = net.JoinHostPort(data.Host, strconv.Itoa(int(data.Port)))
 	}
 	if len(addr) > 36 {
 		addr = addr[:33] + "..."
 	}
-	drawText2x(img, 136, 40, addr, primaryText)
+	drawTitle(img, 136, 36, addr, primaryText)
 
-	// Status Dot and ONLINE / OFFLINE text
 	var (
 		statusDotCol  color.RGBA
 		statusTextStr string
@@ -178,7 +196,7 @@ func Render(data *WidgetData) ([]byte, error) {
 	}
 
 	const rightEdge = BannerWidth - 32
-	statusTextW := len(statusTextStr) * 7
+	statusTextW := measureText(statusTextStr)
 	dotRadius := 5
 	statusTotalW := (dotRadius * 2) + 8 + statusTextW
 	statusStartX := rightEdge - statusTotalW
@@ -186,7 +204,6 @@ func Render(data *WidgetData) ([]byte, error) {
 	drawCircle(img, statusStartX+dotRadius, 40+7, dotRadius, statusDotCol)
 	drawText(img, statusStartX+(dotRadius*2)+8, 42, statusTextStr, statusDotCol)
 
-	// Edition & Version
 	editionStr := data.Edition
 	if editionStr == "" {
 		editionStr = "Java Edition"
@@ -199,20 +216,17 @@ func Render(data *WidgetData) ([]byte, error) {
 	}
 	drawText(img, 136, 74, editionStr, secondaryText)
 
-	// Player count
 	var playerStr string
 	if data.Online {
 		playerStr = fmt.Sprintf("Players: %d / %d", data.PlayersOnline, data.PlayersMax)
 	} else {
 		playerStr = "Players: - / -"
 	}
-	playerW := len(playerStr) * 7
+	playerW := measureText(playerStr)
 	drawText(img, rightEdge-playerW, 74, playerStr, secondaryText)
 
-	// Horizontal divider line
 	drawHLine(img, 136, rightEdge, 104, dividerColor)
 
-	// MOTD (line 1 & line 2)
 	motdClean := strings.TrimSpace(data.MOTD)
 	if motdClean == "" {
 		if data.Online {
@@ -231,6 +245,7 @@ func Render(data *WidgetData) ([]byte, error) {
 		line2 = strings.TrimSpace(lines[1])
 	}
 
+
 	if len(line1) > 95 {
 		line1 = line1[:92] + "..."
 	}
@@ -245,9 +260,8 @@ func Render(data *WidgetData) ([]byte, error) {
 		drawText(img, 136, 144, line2, motdText)
 	}
 
-	// mcstatus.io branding at bottom right
 	branding := "mcstatus.io"
-	brandingW := len(branding) * 7
+	brandingW := measureText(branding)
 	drawText(img, rightEdge-brandingW, 206, branding, brandingCol)
 
 	var buf bytes.Buffer
@@ -256,7 +270,6 @@ func Render(data *WidgetData) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
-
 // RenderWidget is a convenience wrapper for Render.
 func RenderWidget(data *WidgetData) ([]byte, error) {
 	return Render(data)
@@ -313,51 +326,6 @@ func drawCircle(dst *image.RGBA, cx, cy, r int, col color.RGBA) {
 				y := cy + dy
 				if x >= 0 && x < BannerWidth && y >= 0 && y < BannerHeight {
 					dst.SetRGBA(x, y, col)
-				}
-			}
-		}
-	}
-}
-
-func drawText(dst *image.RGBA, x, y int, text string, col color.Color) {
-	d := &font.Drawer{
-		Dst:  dst,
-		Src:  image.NewUniform(col),
-		Face: basicfont.Face7x13,
-		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y + 11)},
-	}
-	d.DrawString(text)
-}
-
-func drawText2x(dst *image.RGBA, startX, startY int, text string, col color.Color) {
-	if text == "" {
-		return
-	}
-	w := len(text) * 7
-	h := 13
-	tmp := image.NewRGBA(image.Rect(0, 0, w, h))
-	d := &font.Drawer{
-		Dst:  tmp,
-		Src:  image.NewUniform(color.White),
-		Face: basicfont.Face7x13,
-		Dot:  fixed.Point26_6{X: 0, Y: fixed.I(11)},
-	}
-	d.DrawString(text)
-
-	cR, cG, cB, cA := col.RGBA()
-	colRGBA := color.RGBA{R: uint8(cR >> 8), G: uint8(cG >> 8), B: uint8(cB >> 8), A: uint8(cA >> 8)}
-	for y := range h {
-		for x := range w {
-			_, _, _, a := tmp.At(x, y).RGBA()
-			if a > 0 {
-				dx := startX + x*2
-				dy := startY + y*2
-				for sy := range 2 {
-					for sx := range 2 {
-						if dx+sx < BannerWidth && dy+sy < BannerHeight && dx+sx >= 0 && dy+sy >= 0 {
-							dst.SetRGBA(dx+sx, dy+sy, colRGBA)
-						}
-					}
 				}
 			}
 		}

@@ -76,8 +76,8 @@ func Logging(filter *IPFilter) func(http.Handler) http.Handler {
 			clientIP := ClientIP(r, filter)
 			slog.Info("http request",
 				"method", r.Method,
-				"path", r.URL.Path,
 				"status", rw.statusCode,
+				"path", r.URL.Path,
 				"duration", duration.String(),
 				"remote", clientIP,
 			)
