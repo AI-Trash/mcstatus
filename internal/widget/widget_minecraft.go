@@ -24,36 +24,47 @@ const (
 	MCHeight = 88
 )
 
-// hasMCGlyph checks if the Minecraft font has a glyph for the given rune.
-func hasMCGlyph(r rune) bool {
-	if mcSfntFont == nil {
-		return r < 128
+// fontHasGlyph checks if the given sfnt.Font contains a glyph for rune r.
+func fontHasGlyph(f *sfnt.Font, r rune) bool {
+	if f == nil {
+		return false
 	}
 	var buf sfnt.Buffer
-	idx, err := mcSfntFont.GlyphIndex(&buf, r)
+	idx, err := f.GlyphIndex(&buf, r)
 	return err == nil && idx != 0
 }
 
-// selectMCRuneFace returns the font.Face to render rune r with bold/italic.
-func selectMCRuneFace(r rune, bold, italic bool) font.Face {
-	if r >= 0 && r < 128 && mcBDFFace != nil {
-		return mcBDFFace
-	}
-	if hasMCGlyph(r) {
+// selectMCRuneFace returns the font.Face and yOffset for rune r with bold/italic.
+// If the rune does not exist in any font, it returns ok=false to prevent rendering tofu boxes.
+func selectMCRuneFace(r rune, bold, italic bool) (face font.Face, yOff int, ok bool) {
+	// 1. Minecraft OTC font (covers ASCII 0..127 + extended Minecraft glyphs with perfect 8px grid alignment)
+	if fontHasGlyph(assets.MinecraftRegular, r) {
 		if bold && italic && mcBoldItalicFace != nil {
-			return mcBoldItalicFace
+			return mcBoldItalicFace, 0, true
 		}
 		if bold && mcBoldFace != nil {
-			return mcBoldFace
+			return mcBoldFace, 0, true
 		}
 		if italic && mcItalicFace != nil {
-			return mcItalicFace
+			return mcItalicFace, 0, true
 		}
 		if mcRegularFace != nil {
-			return mcRegularFace
+			return mcRegularFace, 0, true
 		}
 	}
-	return mcCJKFace
+	// 3. GNU Unifont (covers CJK and standard Unicode blocks, shifted by -1 to align baselines)
+	if fontHasGlyph(assets.Unifont, r) && mcCJKFace != nil {
+		return mcCJKFace, -1, true
+	}
+	// 4. GNU Unifont Upper (covers emojis like 🎮, pictographs, symbols)
+	if fontHasGlyph(assets.UnifontUpper, r) && mcUpperFace != nil {
+		return mcUpperFace, -1, true
+	}
+	// 5. Zpix fallback (covers game symbols, pixel art brackets, and missing CJK)
+	if fontHasGlyph(assets.DefaultFont, r) && mcZpixFace != nil {
+		return mcZpixFace, -1, true
+	}
+	return nil, 0, false
 }
 
 // mcShadowColor computes the Minecraft drop shadow color (brightness / 4).
@@ -68,14 +79,18 @@ func mcShadowColor(c color.RGBA) color.RGBA {
 
 // measureMCRune returns advance width of rune r in pixels.
 func measureMCRune(r rune, bold, italic bool) int {
-	face := selectMCRuneFace(r, bold, italic)
-	adv, ok := face.GlyphAdvance(r)
+	face, _, ok := selectMCRuneFace(r, bold, italic)
+	if !ok || face == nil {
+		return 8
+	}
+	adv, advOk := face.GlyphAdvance(r)
 	width := 8
-	if ok {
+	if advOk {
 		width = adv.Ceil()
 	}
-	if bold && !hasMCGlyph(r) {
-		width++
+	isOTC := fontHasGlyph(assets.MinecraftRegular, r)
+	if bold && !isOTC {
+		width += 2
 	}
 	return width
 }
@@ -92,25 +107,30 @@ func measureMCText(text string, bold, italic bool) int {
 // drawMCRune renders a rune with authentic Minecraft drop shadow.
 // If a CJK rune has bold enabled, it simulates Minecraft's 1px horizontal offset rendering.
 func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic bool) int {
-	face := selectMCRuneFace(r, bold, italic)
+	face, yOff, ok := selectMCRuneFace(r, bold, italic)
+	if !ok || face == nil {
+		return 8
+	}
+
+	drawY := y + yOff
 	shadow := mcShadowColor(col)
-	needsPseudoBold := bold && (r < 128 || !hasMCGlyph(r))
 
 	// Draw shadow offset by +2, +2
 	dShadow := &font.Drawer{
 		Dst:  dst,
 		Src:  image.NewUniform(shadow),
 		Face: face,
-		Dot:  fixed.Point26_6{X: fixed.I(x + 2), Y: fixed.I(y + 2)},
+		Dot:  fixed.Point26_6{X: fixed.I(x + 2), Y: fixed.I(drawY + 2)},
 	}
 	dShadow.DrawString(string(r))
 
-	if needsPseudoBold {
+	isOTC := fontHasGlyph(assets.MinecraftRegular, r)
+	if bold && !isOTC {
 		dShadowBold := &font.Drawer{
 			Dst:  dst,
 			Src:  image.NewUniform(shadow),
 			Face: face,
-			Dot:  fixed.Point26_6{X: fixed.I(x + 3), Y: fixed.I(y + 2)},
+			Dot:  fixed.Point26_6{X: fixed.I(x + 4), Y: fixed.I(drawY + 2)},
 		}
 		dShadowBold.DrawString(string(r))
 	}
@@ -120,27 +140,27 @@ func drawMCRune(dst *image.RGBA, x, y int, r rune, col color.RGBA, bold, italic 
 		Dst:  dst,
 		Src:  image.NewUniform(col),
 		Face: face,
-		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)},
+		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(drawY)},
 	}
 	dText.DrawString(string(r))
 
-	if needsPseudoBold {
+	if bold && !isOTC {
 		dTextBold := &font.Drawer{
 			Dst:  dst,
 			Src:  image.NewUniform(col),
 			Face: face,
-			Dot:  fixed.Point26_6{X: fixed.I(x + 1), Y: fixed.I(y)},
+			Dot:  fixed.Point26_6{X: fixed.I(x + 2), Y: fixed.I(drawY)},
 		}
 		dTextBold.DrawString(string(r))
 	}
 
-	adv, ok := face.GlyphAdvance(r)
+	adv, advOk := face.GlyphAdvance(r)
 	width := 8
-	if ok {
+	if advOk {
 		width = adv.Ceil()
 	}
-	if needsPseudoBold {
-		width++
+	if bold && !isOTC {
+		width += 2
 	}
 	return width
 }
@@ -327,7 +347,7 @@ func RenderMinecraftImage(data *WidgetData) (*image.RGBA, error) {
 	// 5. Server Title (only if hasTitle is true)
 	if hasTitle {
 		white := color.RGBA{255, 255, 255, 255}
-		drawMCPlain(img, startX, 28, titleText, white, true, false)
+		drawMCPlain(img, startX, 28, titleText, white, false, false)
 	}
 	// 6. MOTD Lines with adaptive positioning and text width clamping
 	motdRaw := data.MOTDRaw

@@ -9,7 +9,6 @@ require github.com/mcstatus-io/mcutil/v4 v4.3.1
 require golang.org/x/image v0.46.0
 
 require (
-	github.com/KarpelesLab/gofreetype v0.0.0-20260414040611-b4e252fb946c
 	github.com/gen2brain/gav1d v0.2.5
 	github.com/klauspost/compress v1.20.1
 	github.com/lmittmann/tint v1.2.0

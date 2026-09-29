@@ -5,7 +5,10 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
 	"testing"
+
+	_ "golang.org/x/image/font/sfnt"
 
 	"mcstatus/internal/assets"
 )
@@ -350,4 +353,31 @@ func TestRenderMinecraftAdaptiveLayout(t *testing.T) {
 	if img4.Bounds().Dx() != MCWidth || img4.Bounds().Dy() != MCHeight {
 		t.Fatalf("CustomTitle dimension want 650x88, got %dx%d", img4.Bounds().Dx(), img4.Bounds().Dy())
 	}
+}
+func TestGenerateReviewImage(t *testing.T) {
+	data := &WidgetData{
+		Online:        true,
+		Host:          "games.mc.asyncraft.club",
+		Port:          25565,
+		Edition:       "Java Edition",
+		Version:       "1.20.4",
+		PlayersOnline: 0,
+		PlayersMax:    500,
+		MOTD:          "Asyncraft服务器\n -> 🎮 小游戏 🎮",
+		MOTDRaw:       "§#55ffffA§#74ffffs§#93ffffy§#b2ffffn§#d1ffffc§#f0ffffra§#d1fffff§#b2fffft§#93ffff服§#74ffff务§#55ffff器\n§e -> 🎮 小游戏 🎮",
+		Dark:          true,
+		Rounded:       false,
+		Transparent:   false,
+	}
+
+	buf, err := RenderMinecraft(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outPath := "C:/Users/logen/AppData/Local/Temp/review_widget.png"
+	if err := os.WriteFile(outPath, buf, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Successfully wrote %s", outPath)
 }

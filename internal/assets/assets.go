@@ -21,12 +21,10 @@ var zpixZstBytes []byte
 //go:embed unifont.otf.zst
 var unifontZstBytes []byte
 
+//go:embed unifont_upper.ttf.zst
+var unifontUpperZstBytes []byte
 //go:embed minecraft.otc.zst
 var minecraftOTCZstBytes []byte
-
-//go:embed minecraft.bdf.zst
-var MinecraftBDFZstBytes []byte
-
 var (
 	DefaultIcon         image.Image
 	DefaultFont         *opentype.Font // Zpix (CJK pixel font)
@@ -35,9 +33,8 @@ var (
 	MinecraftItalic     *sfnt.Font
 	MinecraftBoldItalic *sfnt.Font
 	Unifont             *opentype.Font // GNU Unifont (Official Minecraft Java fallback)
-	MinecraftBDFBytes   []byte
+	UnifontUpper        *opentype.Font // GNU Unifont Upper (Plane 1 SMP / Emojis)
 )
-
 func decompressZstd(data []byte) ([]byte, error) {
 	zr, err := zstd.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -53,12 +50,6 @@ func init() {
 	if err != nil {
 		panic("failed to decode embedded default icon: " + err.Error())
 	}
-
-	MinecraftBDFBytes, err = decompressZstd(MinecraftBDFZstBytes)
-	if err != nil {
-		panic("failed to decompress minecraft.bdf.zst: " + err.Error())
-	}
-
 	zpixBytes, err := decompressZstd(zpixZstBytes)
 	if err != nil {
 		panic("failed to decompress zpix.ttf.zst: " + err.Error())
@@ -77,6 +68,14 @@ func init() {
 		panic("failed to parse unifont: " + err.Error())
 	}
 
+	upperBytes, err := decompressZstd(unifontUpperZstBytes)
+	if err != nil {
+		panic("failed to decompress unifont_upper.ttf.zst: " + err.Error())
+	}
+	UnifontUpper, err = opentype.Parse(upperBytes)
+	if err != nil {
+		panic("failed to parse unifont_upper: " + err.Error())
+	}
 	otcBytes, err := decompressZstd(minecraftOTCZstBytes)
 	if err != nil {
 		panic("failed to decompress minecraft.otc.zst: " + err.Error())
