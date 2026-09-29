@@ -1,8 +1,10 @@
 FROM alpine:latest
 
+ARG TARGETPLATFORM
+
 RUN apk --no-cache add ca-certificates tzdata
 
-COPY mcstatus /usr/local/bin/mcstatus
+COPY $TARGETPLATFORM/mcstatus /usr/local/bin/mcstatus
 
 EXPOSE 3001
 
