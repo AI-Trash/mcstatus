@@ -18,14 +18,7 @@ builds:
     ldflags:
       - -s
       - -w
-      - -extldflags "-static"
       - -X mcstatus/internal/version.Version={{.FullCommit}}
-
-upx:
-  - enabled: true
-    compress: best
-    lzma: true
-
 dockers_v2:
   - id: mcstatus
     images:

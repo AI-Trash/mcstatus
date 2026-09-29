@@ -9,7 +9,7 @@
 - **零配置开箱即用**：缺省所有配置项即可直接启动运行。
 - **内存缓存 & Cloudflare CDN 友好**：内置带并发合并（SingleFlight）的高性能内存 TTL 缓存，精准输出 `Cache-Control`、`CDN-Cache-Control`、`Cloudflare-CDN-Cache-Control`、`ETag` 与 `X-Cache-Hit` 标头，支持 304 Not Modified。
 - **真实 IP 与彩色日志**：基于 `TRUSTED_PROXIES` 受信代理自动安全提取 `CF-Connecting-IP`、`X-Real-IP`、`X-Forwarded-For` 真实访客 IP，默认覆盖所有私网网段防伪造，终端基于 `tint` 提供现代化着色日志。
-- **现代化构建**：使用 [GoReleaser](https://goreleaser.com/) 原生集成 UPX 极速压缩（缩减 60% 体积），底层基于 `alpine:latest` 构建多架构容器镜像，推送到 `main` 分支自动发布至 GHCR。
+- **现代化构建**：使用 [GoReleaser](https://goreleaser.com/) 纯静态交叉编译，底层基于 `alpine:latest` 构建多架构（amd64/arm64）容器镜像，推送到 `main` 分支自动发布至 GHCR。
 - **AGPLv3 开源协议**。
 
 ---
