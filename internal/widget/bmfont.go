@@ -2,12 +2,10 @@ package widget
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
-	"strings"
 
 	"github.com/fzipp/bmfont"
 	"golang.org/x/image/font"
@@ -66,23 +64,6 @@ func initBMFont() {
 		}
 	}
 
-	var fnt strings.Builder
-	fnt.WriteString("info face=\"Minecraft\" size=16 bold=0 italic=0\n")
-	fnt.WriteString("common lineHeight=16 base=14 scaleW=256 scaleH=256 pages=1\n")
-	fnt.WriteString("page id=0 file=\"ascii.png\"\n")
-	fnt.WriteString("chars count=256\n")
-
-	for ch := 0; ch < 256; ch++ {
-		col := ch % 16
-		row := ch / 16
-		w := mcWidths[ch] * 2
-		if w == 0 {
-			w = 16
-		}
-		fnt.WriteString(fmt.Sprintf("char id=%d x=%d y=%d width=%d height=16 xoffset=0 yoffset=0 xadvance=%d page=0\n",
-			ch, col*16, row*16, w, mcWidths[ch]*2))
-	}
-
 	sheetFunc := func(filename string) (io.ReadCloser, error) {
 		var b bytes.Buffer
 		_ = png.Encode(&b, mcBMMask)
@@ -90,7 +71,7 @@ func initBMFont() {
 	}
 
 	var err error
-	mcBMFont, err = bmfont.Read(strings.NewReader(fnt.String()), sheetFunc)
+	mcBMFont, err = bmfont.Read(bytes.NewReader(assets.MinecraftFNTBytes), sheetFunc)
 	if err != nil {
 		panic("failed to parse minecraft bmfont: " + err.Error())
 	}
