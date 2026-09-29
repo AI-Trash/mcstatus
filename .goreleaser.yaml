@@ -1,0 +1,39 @@
+version: 2
+
+project_name: mcstatus
+
+builds:
+  - id: mcstatus
+    main: ./cmd/server
+    binary: mcstatus
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+      - -extldflags "-static"
+      - -X mcstatus/internal/version.Version={{.FullCommit}}
+
+upx:
+  - enabled: true
+    compress: best
+    lzma: true
+
+dockers_v2:
+  - id: mcstatus
+    images:
+      - "ghcr.io/ai-trash/mcstatus"
+    tags:
+      - "latest"
+      - "{{ .ShortCommit }}"
+    dockerfile: Dockerfile
+    platforms:
+      - linux/amd64
+      - linux/arm64

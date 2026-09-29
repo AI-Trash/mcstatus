@@ -1,4 +1,4 @@
-name: Publish Image
+name: Release and Publish
 
 on:
   push:
@@ -8,16 +8,18 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
-  publish:
-    name: Build and Push GHCR Image
+  goreleaser:
+    name: Build, Package & Publish
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -28,8 +30,11 @@ jobs:
       - name: Set up UPX
         uses: crazy-max/ghaction-upx@v4
 
-      - name: Set up ko
-        uses: ko-build/setup-ko@v0.10
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -38,35 +43,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Image Repository and Tags
+      - name: Ensure Tag for GoReleaser
+        if: "!startsWith(github.ref, 'refs/tags/')"
         run: |
-          echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
-          TAGS="latest,${{ github.sha }}"
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-            TAGS="${TAGS},${TAG_NAME}"
-          fi
-          echo "IMAGE_TAGS=${TAGS}" >> "$GITHUB_ENV"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="v0.0.0-${{ github.sha }}"
+          git tag -a "$TAG" -m "Automated build for $TAG"
 
-      - name: Build and Publish with ko & UPX
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
         env:
-          KO_DOCKER_REPO: "${{ env.IMAGE_REPO }}"
-          KO_GO_PATH: "/tmp/go-upx"
-        run: |
-          cat << 'EOF' > /tmp/go-upx
-          #!/usr/bin/env bash
-          set -e
-          go "$@"
-          if [ "$1" = "build" ]; then
-            prev=""
-            for arg in "$@"; do
-              if [ "$prev" = "-o" ]; then
-                upx --best --lzma "$arg" || true
-                break
-              fi
-              prev="$arg"
-            done
-          fi
-          EOF
-          chmod +x /tmp/go-upx
-          ko build --bare --platform=linux/amd64,linux/arm64 --tags="${IMAGE_TAGS}" ./cmd/server
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
