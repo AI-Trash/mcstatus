@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deepteams/webp"
 	gavif "github.com/gen2brain/gav1d/avif"
-	"github.com/gen2brain/jpegxl"
-	"github.com/gen2brain/webp"
 	_ "golang.org/x/image/font/sfnt"
 
 	"mcstatus/internal/assets"
@@ -435,33 +434,17 @@ func TestBenchmarkRealWidgetSizes(t *testing.T) {
 		// 2. Lossless WebP (Default Method 4)
 		t0 = time.Now()
 		var webpBuf4 bytes.Buffer
-		_ = webp.Encode(&webpBuf4, rawImg, webp.Options{Lossless: true, Method: 4})
+		_ = webp.Encode(&webpBuf4, rawImg, &webp.Options{Lossless: true, Method: 4})
 		durWebP4 := time.Since(t0)
 		t.Logf(" [Lossless WebP m=4]   %6d bytes | %5.1f%% vs PNG    | %v", webpBuf4.Len(), float64(webpBuf4.Len())/float64(pngSize)*100, durWebP4)
 
 		// 3. Lossless WebP (Max Method 6)
 		t0 = time.Now()
 		var webpBuf6 bytes.Buffer
-		_ = webp.Encode(&webpBuf6, rawImg, webp.Options{Lossless: true, Method: 6})
+		_ = webp.Encode(&webpBuf6, rawImg, &webp.Options{Lossless: true, Method: 6})
 		durWebP6 := time.Since(t0)
 		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".webp"), webpBuf6.Bytes(), 0644)
 		t.Logf(" [Lossless WebP m=6]   %6d bytes | %5.1f%% vs PNG    | %v", webpBuf6.Len(), float64(webpBuf6.Len())/float64(pngSize)*100, durWebP6)
-
-		// 4. Lossless JXL (Effort 7)
-		t0 = time.Now()
-		var jxlBuf7 bytes.Buffer
-		_ = jpegxl.Encode(&jxlBuf7, rawImg, jpegxl.Options{Lossless: true, Effort: 7})
-		durJXL7 := time.Since(t0)
-		t.Logf(" [Lossless JXL e=7]    %6d bytes | %5.1f%% vs PNG    | %v", jxlBuf7.Len(), float64(jxlBuf7.Len())/float64(pngSize)*100, durJXL7)
-
-		// 5. Lossless JXL (Effort 9)
-		t0 = time.Now()
-		var jxlBuf9 bytes.Buffer
-		_ = jpegxl.Encode(&jxlBuf9, rawImg, jpegxl.Options{Lossless: true, Effort: 9})
-		durJXL9 := time.Since(t0)
-		_ = os.WriteFile(filepath.Join(tempDir, "bench_"+tc.style+".jxl"), jxlBuf9.Bytes(), 0644)
-		t.Logf(" [Lossless JXL e=9]    %6d bytes | %5.1f%% vs PNG    | %v", jxlBuf9.Len(), float64(jxlBuf9.Len())/float64(pngSize)*100, durJXL9)
-
 		// 6. Lossless AVIF (Speed 6)
 		t0 = time.Now()
 		var avifBuf bytes.Buffer
