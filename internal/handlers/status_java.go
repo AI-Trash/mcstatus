@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +24,99 @@ import (
 	"mcstatus/internal/resolver"
 	"mcstatus/internal/types"
 )
+
+func writeVarInt(val int32, w io.Writer) error {
+	for {
+		if (val & ^0x7F) == 0 {
+			_, err := w.Write([]byte{byte(val)})
+			return err
+		}
+		if _, err := w.Write([]byte{byte((val & 0x7F) | 0x80)}); err != nil {
+			return err
+		}
+		val = int32(uint32(val) >> 7)
+	}
+}
+
+func readVarInt(r io.Reader) (int32, error) {
+	var num int32
+	var count uint
+	b := make([]byte, 1)
+	for {
+		if _, err := r.Read(b); err != nil {
+			return 0, err
+		}
+		num |= int32(b[0]&0x7F) << (7 * count)
+		count++
+		if (b[0] & 0x80) == 0 {
+			break
+		}
+		if count > 5 {
+			return 0, fmt.Errorf("varint too long")
+		}
+	}
+	return num, nil
+}
+
+func pingModernSLP(ctx context.Context, host string, port uint16, targetHost string, targetPort uint16, protocol int32, timeout time.Duration) (map[string]any, error) {
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(targetHost, strconv.Itoa(int(targetPort))))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	} else {
+		_ = conn.SetDeadline(time.Now().Add(timeout))
+	}
+
+	hBuf := &bytes.Buffer{}
+	_ = writeVarInt(0x00, hBuf)
+	_ = writeVarInt(protocol, hBuf)
+	_ = writeVarInt(int32(len(host)), hBuf)
+	hBuf.WriteString(host)
+	_ = binary.Write(hBuf, binary.BigEndian, port)
+	_ = writeVarInt(1, hBuf)
+
+	pktBuf := &bytes.Buffer{}
+	_ = writeVarInt(int32(hBuf.Len()), pktBuf)
+	pktBuf.Write(hBuf.Bytes())
+	if _, err := conn.Write(pktBuf.Bytes()); err != nil {
+		return nil, err
+	}
+
+	if _, err := conn.Write([]byte{0x01, 0x00}); err != nil {
+		return nil, err
+	}
+
+	if _, err := readVarInt(conn); err != nil {
+		return nil, err
+	}
+	if _, err := readVarInt(conn); err != nil {
+		return nil, err
+	}
+	strLen, err := readVarInt(conn)
+	if err != nil {
+		return nil, err
+	}
+	if strLen <= 0 || strLen > 10*1024*1024 {
+		return nil, fmt.Errorf("invalid response length")
+	}
+
+	payload := make([]byte, strLen)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		return nil, err
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(payload, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
 
 
 
@@ -153,16 +251,19 @@ func FetchJavaStatus(ctx context.Context, cfg *config.Config, bl *blocklist.Bloc
 	}
 	resp.IPAddress = ipAddress
 
-	// 4. Query status: Modern first, then Legacy fallback
-	modernOpts := options.StatusModern{
-		EnableSRV:         true,
-		Timeout:           timeout,
-		ProtocolVersion:   -1,
-		ReceiveLimitBytes: 1 << 20,
-		Ping:              true,
+	// 4. Query status: Modern SLP first (with correct VarInt), then Legacy fallback
+	modernRaw, modernErr := pingModernSLP(ctx, host, port, targetHost, targetPort, -1, timeout)
+	if modernErr != nil {
+		modernOpts := options.StatusModern{
+			EnableSRV:         true,
+			Timeout:           timeout,
+			ProtocolVersion:   -1,
+			ReceiveLimitBytes: 1 << 20,
+			Ping:              true,
+		}
+		modernRaw, modernErr = status.ModernRaw(ctx, host, port, modernOpts)
 	}
 
-	modernRaw, modernErr := status.ModernRaw(ctx, host, port, modernOpts)
 	if modernErr == nil && modernRaw != nil {
 		resp.Online = true
 
@@ -170,19 +271,17 @@ func FetchJavaStatus(ctx context.Context, cfg *config.Config, bl *blocklist.Bloc
 			protoVal, _ := vMap["protocol"].(float64)
 			serverProto := int(protoVal)
 
-			// Re-query with the server's reported protocol to eliminate the "outdated client" warning in MOTD
-			if serverProto > 0 && serverProto != modernOpts.ProtocolVersion {
-				refinedOpts := modernOpts
-				refinedOpts.ProtocolVersion = serverProto
-				refinedOpts.Timeout = 1500 * time.Millisecond
-				if refinedRaw, err := status.ModernRaw(ctx, host, port, refinedOpts); err == nil && refinedRaw != nil {
+			// Re-query with the server's exact reported protocol (with correct VarInt encoding) to eliminate outdated client warnings
+			if serverProto > 0 {
+				refCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+				if refinedRaw, err := pingModernSLP(refCtx, host, port, targetHost, targetPort, int32(serverProto), 1500*time.Millisecond); err == nil && refinedRaw != nil {
 					modernRaw = refinedRaw
 					if vMapRefined, ok := modernRaw["version"].(map[string]any); ok {
 						vMap = vMapRefined
 					}
 				}
+				cancel()
 			}
-
 			nameStr, _ := vMap["name"].(string)
 			vFormat := motd.Format(nameStr)
 			resp.Version = &types.JavaVersion{
